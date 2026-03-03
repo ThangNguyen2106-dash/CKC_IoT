@@ -7,6 +7,7 @@
 // #include <WiFiAP.h>
 #include <WiFiClient.h>
 #include <MQTT/ESP32_MQTT.hpp>
+#include<CKC/CKC_Type/CKC_PIN.hpp>
 
 #define WIFI_AP_IP IPAddress(192, 168, 27, 1)
 #define WIFI_AP_Subnet IPAddress(255, 255, 255, 0)
@@ -29,7 +30,9 @@ enum CKC_WiFI_TASK
     WIFI_DISCONNECTED,
 };
 CKC_WiFI_TASK WiFi_TASK = MODE_STA;
+
 CKC_MQTT MQTT;
+
 class CKC_PnP
 {
 public:
@@ -66,6 +69,7 @@ private:
     unsigned long pressStart = 0;
     bool triggered = false;
 };
+
 void CKC_PnP::init(const char *sta_ssid, const char *sta_pass)
 {
     strcpy(_sta_ssid, sta_ssid);
@@ -89,6 +93,7 @@ void CKC_PnP::init(const char *sta_ssid, const char *sta_pass)
     t1 = millis();
     pinMode(FLASH_BTN, INPUT_PULLUP); // nút kéo xuống GND khi nhấn
 }
+
 void CKC_PnP::CKC_state_Connect_STA()
 {
     WiFi.mode(WIFI_STA);
@@ -126,6 +131,7 @@ void CKC_PnP::CKC_state_Connect_STA()
         t2 = millis();
     }
 }
+
 void CKC_PnP::CKC_state_Connect_AP()
 {
     if (millis() - t2 > 30000)
@@ -145,10 +151,12 @@ void CKC_PnP::CKC_state_Connect_AP()
         }
     }
 }
+
 void CKC_PnP::CKC_mode_connected()
 {
     MQTT.run();
 }
+
 bool CKC_PnP::CkC_Connected()
 {
     if (WiFi.status() == WL_CONNECTED)
@@ -160,6 +168,7 @@ bool CKC_PnP::CkC_Connected()
         return false;
     }
 }
+
 void CKC_PnP::handler_button()
 {
 #ifdef BUTTON_MODE
@@ -201,6 +210,7 @@ void CKC_PnP::handler_button()
 
 #endif
 }
+
 void CKC_PnP::run()
 {
     switch (WiFi_TASK)

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <Arduino.h>
+#include <MQTT/ESP32_MQTT.hpp>
 
 #define V0 0
 #define V1 1
@@ -512,6 +513,7 @@
 #define V499 499
 #endif
 
+// Hàm xử lý kiểu dữ liệu
 #pragma
 class CKCParam
 {
@@ -634,20 +636,25 @@ private:
     String str; // string tách riêng vì union không chứa object được
 };
 
+// #ifndef CKC_UNUSED
+// #define CKC_UNUSED __attribute__((__unused__))
+// #endif
+// #define CKC_WRITE(Pin) void CKC_WidgetWrite##Pin(uint8_t CKC_UNUSED &pin, const CKCParam CKC_UNUSED &param)
+// void CKC_WidgetWrite(uint8_t CKC_UNUSED &pin, const CKCParam CKC_UNUSED &param)
+// {
+// }
+// // CKC_WRITE(V5)
+// // {
+// //     int a = param.getInt();
+// // }
 #ifndef CKC_UNUSED
-  #define CKC_UNUSED __attribute__((__unused__))
+#define CKC_UNUSED __attribute__((__unused__))
 #endif
-#define CKC_WRITE(Pin)      void CKC_WidgetWrite##Pin(uint8_t CKC_UNUSED &pin, const CKCParam CKC_UNUSED &param)
 
-void CKC_WidgetWrite(uint8_t CKC_UNUSED &pin, const CKCParam CKC_UNUSED &param)
-{
-    
-}
+#define CKC_WRITE(Pin) \
+    void CKC_WidgetWrite##Pin(uint8_t &pin, const CKCParam &param)
 
-
-CKC_WRITE(V5)
-{
-   int a = param.getInt();
-}
+// chỉ prototype
+void CKC_WidgetWrite(uint8_t &pin, const CKCParam &param);
 
 #endif

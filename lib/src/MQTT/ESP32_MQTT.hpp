@@ -1,6 +1,5 @@
 #ifndef CKC_ESP32_MQTT_HPP
 #define CKC_ESP32_MQTT_HPP
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -8,6 +7,8 @@
 #include <WiFiUdp.h>
 #include <MQTT/NPT_Client/NTPClient.h>
 #include <MQTT/PubSubClient/PubSubClient.h>
+#include <CKC/CKC_Type/CKC_PIN.hpp>
+#include <CKC/CKC_Type/CKC_VirtualPin.hpp>
 #include <stdint.h>
 
 const char *MQTT_Server = "1e5f657dbd934df698af2d814b1fce1a.s1.eu.hivemq.cloud";
@@ -25,29 +26,39 @@ public:
     void sendData(String Topic_s, String Data);
     void receiveData(String Topic_r);
 
-private:    
+private:
     String Data_receive;
 };
+
 void mqttCallback(char *topic, byte *payload, unsigned int length)
 {
-    String msg;
+    String message;
     for (int i = 0; i < length; i++)
-        msg += (char)payload[i];
+        message += (char)payload[i];
+
     Serial.print("[MQTT] ");
     Serial.print(topic);
     Serial.print(" => ");
-    Serial.println(msg);
-
-    if (String(topic) == "led/2")
+    Serial.println(message);
+    CKCParam param(message);
+    if (strcmp(topic, "V1") == 0)
     {
-        int value = msg.toInt(); // "1" / "0"
+        CKC_Virtual.run(V1, param);
+    }
+    else if (strcmp(topic, "V2") == 0)
+    {
+        CKC_Virtual.run(V2, param);
+    }
+    else if (strcmp(topic, "V3") == 0)
+    {
+        CKC_Virtual.run(V3, param);
     }
 }
 
 WiFiClientSecure server;
 PubSubClient mqttClient(server);
 
-void CKC_MQTT::begin() // Hàm cấu hình Wifi và set up MQTT Server
+void CKC_MQTT::begin() // Hàm set up MQTT Server
 {
     server.setInsecure();                         // hàm cài đặt bỏ qua bước xác thực
     mqttClient.setServer(MQTT_Server, MQTT_PORT); // set up MQTT Server với link Server và cổng PORT
@@ -67,7 +78,7 @@ void CKC_MQTT::begin() // Hàm cấu hình Wifi và set up MQTT Server
 void CKC_MQTT::run() // hàm hoạt động của MQTT
 {
     if (mqttClient.connected())
-        mqttClient.loop();        
+        mqttClient.loop();
 }
 
 void CKC_MQTT::sendData(String Topic_s, String Data) // gửi dữ liệu kèm theo TOPIC đến MQTT Server, đồng thời kiểm tra kết nỗi trước khi gửi
@@ -79,7 +90,8 @@ void CKC_MQTT::sendData(String Topic_s, String Data) // gửi dữ liệu kèm t
         if (!mqttClient.connect(MQTT_ID, MQTT_USERNAME, MQTT_PASS))
         {
             Serial.println("FAILED");
-            CKC_MQTT:begin();
+        CKC_MQTT:
+            begin();
             return;
         }
         Serial.println("OK");
