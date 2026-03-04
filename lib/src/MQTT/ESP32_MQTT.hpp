@@ -40,19 +40,19 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     Serial.print(topic);
     Serial.print(" => ");
     Serial.println(message);
-    CKCParam param(message);
-    if (strcmp(topic, "V1") == 0)
-    {
-        CKC_Virtual.run(V1, param);
-    }
-    else if (strcmp(topic, "V2") == 0)
-    {
-        CKC_Virtual.run(V2, param);
-    }
-    else if (strcmp(topic, "V3") == 0)
-    {
-        CKC_Virtual.run(V3, param);
-    }
+    // CKCParam param(message);
+    // if (strcmp(topic, "V1") == 0)
+    // {
+    //     CKC_Virtual.run(V1, param);
+    // }
+    // else if (strcmp(topic, "V2") == 0)
+    // {
+    //     CKC_Virtual.run(V2, param);
+    // }
+    // else if (strcmp(topic, "V3") == 0)
+    // {
+    //     CKC_Virtual.run(V3, param);
+    // }
 }
 
 WiFiClientSecure server;
