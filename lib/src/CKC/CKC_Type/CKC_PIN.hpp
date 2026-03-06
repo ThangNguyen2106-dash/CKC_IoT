@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <Arduino.h>
-#include <MQTT/ESP32_MQTT.hpp>
+#include <ArduinoJson.h>
+#include<CKC/CKC_topic.h>
 
 #define V0 0
 #define V1 1
@@ -513,7 +514,10 @@
 #define V499 499
 #endif
 
-// Hàm xử lý kiểu dữ liệu
+#include <Arduino.h>
+
+#define CKC_MAX_PINS 20
+
 #pragma
 class CKCParam
 {
@@ -528,15 +532,14 @@ public:
     };
 
     CKCParam() : type(Type::NONE) {}
-
-    // Constructors (tự nhận kiểu)
+    void add(int v) { intVal = v; }
+    // Constructors
     CKCParam(int v) { set(v); }
     CKCParam(float v) { set(v); }
     CKCParam(bool v) { set(v); }
     CKCParam(const char *v) { set(v); }
     CKCParam(const String &v) { set(v); }
 
-    // set()
     void set(int v)
     {
         type = Type::INT;
@@ -570,7 +573,6 @@ public:
     // get type
     Type getType() const { return type; }
 
-    // get value (an toàn)
     int getInt(int def = 0) const
     {
         if (type == Type::INT)
@@ -625,36 +627,132 @@ public:
 
 private:
     Type type;
-
     union
     {
         int i;
         float f;
         bool b;
     } data;
-
-    String str; // string tách riêng vì union không chứa object được
+    int intVal;
+    String str;
 };
-
-// #ifndef CKC_UNUSED
-// #define CKC_UNUSED __attribute__((__unused__))
-// #endif
-// #define CKC_WRITE(Pin) void CKC_WidgetWrite##Pin(uint8_t CKC_UNUSED &pin, const CKCParam CKC_UNUSED &param)
-// void CKC_WidgetWrite(uint8_t CKC_UNUSED &pin, const CKCParam CKC_UNUSED &param)
-// {
-// }
-// // CKC_WRITE(V5)
-// // {
-// //     int a = param.getInt();
-// // }
+//========= Handler =========//
+void CKC_WidgetWrite(uint8_t pin, const CKCParam &param)
+{
+    Serial.println("received");
+}
+//========= Macro handler=======//
 #ifndef CKC_UNUSED
 #define CKC_UNUSED __attribute__((__unused__))
 #endif
+#define CKC_ON_WRITE(Pin)                                         \
+    void CKC_WidgetWrite##Pin(uint8_t pin, const CKCParam &param) \
+        __attribute__((weak, alias("CKC_WidgetWrite")))
+// Tạo 0–19
+CKC_ON_WRITE(0);
+CKC_ON_WRITE(1);
+CKC_ON_WRITE(2);
+CKC_ON_WRITE(3);
+CKC_ON_WRITE(4);
+CKC_ON_WRITE(5);
+CKC_ON_WRITE(6);
+CKC_ON_WRITE(7);
+CKC_ON_WRITE(8);
+CKC_ON_WRITE(9);
+CKC_ON_WRITE(10);
+CKC_ON_WRITE(11);
+CKC_ON_WRITE(12);
+CKC_ON_WRITE(13);
+CKC_ON_WRITE(14);
+CKC_ON_WRITE(15);
+CKC_ON_WRITE(16);
+CKC_ON_WRITE(17);
+CKC_ON_WRITE(18);
+CKC_ON_WRITE(19);
+typedef void (*CKCWriteHandler_t)(uint8_t, const CKCParam &);
+static const CKCWriteHandler_t CKCHandlerVector[CKC_MAX_PINS] = {
+    CKC_WidgetWrite0, CKC_WidgetWrite1, CKC_WidgetWrite2, CKC_WidgetWrite3,
+    CKC_WidgetWrite4, CKC_WidgetWrite5, CKC_WidgetWrite6, CKC_WidgetWrite7,
+    CKC_WidgetWrite8, CKC_WidgetWrite9, CKC_WidgetWrite10, CKC_WidgetWrite11,
+    CKC_WidgetWrite12, CKC_WidgetWrite13, CKC_WidgetWrite14, CKC_WidgetWrite15,
+    CKC_WidgetWrite16, CKC_WidgetWrite17, CKC_WidgetWrite18, CKC_WidgetWrite19};
 
-#define CKC_WRITE(Pin) \
-    void CKC_WidgetWrite##Pin(uint8_t &pin, const CKCParam &param)
+//========= Macro User ==========//
+#define CKC_WRITE_2(Pin) \
+    void CKC_WidgetWrite##Pin(uint8_t pin, const CKCParam &param)
+#define CKC_WRITE(Pin) CKC_WRITE_2(Pin)
 
-// chỉ prototype
-void CKC_WidgetWrite(uint8_t &pin, const CKCParam &param);
+//==========CALL HANDLER =============//
+inline void CKC_CallWriteHandler(uint8_t pin, const CKCParam &param)
+{
+    if (pin >= CKC_MAX_PINS)
+        return;
+    CKCHandlerVector[pin](pin, param);
+}
+
+//==================== Tách dữ liệu ===================//
+inline void CKC_HandleMQTT(const char *topic, const char *payload)
+{
+    if (strncmp(topic, CKC_BASE_TOPIC, strlen(CKC_BASE_TOPIC)) != 0)
+        return;
+    char topicRaw[120];
+    strncpy(topicRaw, topic, sizeof(topicRaw));
+    topicRaw[sizeof(topicRaw) - 1] = '\0';
+
+    char *token = strtok(topicRaw, "/");
+    uint8_t index = 0;
+    uint8_t pin = 255;
+    while (token != nullptr)
+    {
+        if (index == 2 && strcmp(token, "virtual_pin") == 0)
+        {
+            Serial.println("Nhận lệnh điều khiển pin Ảo");
+            token = strtok(nullptr, "/");
+            if (token != nullptr)
+            {
+                pin = atoi(token);
+            }
+            break;
+        }
+        else if (index == 2 && strcmp(token, "arduino_pin") == 0)
+        {
+            Serial.println("Nhận lệnh điều khiển pin Arduino");
+            token = strtok(nullptr, "/");
+            if (token != nullptr)
+            {
+                pin = atoi(token);
+            }
+            break;
+        }
+
+        token = strtok(nullptr, "/");
+        index++;
+    }
+    if (pin == 255)
+        return;
+    // PARSE JSON
+
+    // StaticJsonDocument<128> doc;
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (error)
+        return;
+    if (!doc["value"].is<int>())
+        return;
+
+    int value = doc["value"];
+    CKCParam param;
+    param.add(value);
+    // CKC_CallWriteHandler(pin, param);
+}
+
+// CKC_WRITE(V5)
+// {
+//     int value = param.getInt();
+//     digitalWrite(5, value);
+//     Serial.print("V5 = ");
+//     Serial.println(value);
+// }
 
 #endif

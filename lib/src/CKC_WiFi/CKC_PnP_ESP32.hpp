@@ -1,13 +1,14 @@
 #ifndef CKC_ESP32
 #define CKC_ESP32
 
-
 #include <Arduino.h>
 // #include <IPAddress.h>
 // #include <WiFiAP.h>
 #include <WiFiClient.h>
+#include <Preferences.h>
+#include <EEPROM.h>
+#include <CKC/CKC_API/CKC_API.hpp>
 #include <MQTT/ESP32_MQTT.hpp>
-#include<CKC/CKC_Type/CKC_PIN.hpp>
 
 #define WIFI_AP_IP IPAddress(192, 168, 27, 1)
 #define WIFI_AP_Subnet IPAddress(255, 255, 255, 0)
@@ -18,7 +19,7 @@ char STA_WIFI_PASS[32];
 
 #define AP_WIFI_NAME "CKC:"
 #define AP_WIFI_PASS "CKC@2026"
-#define AP_WIFI_IP "192.168.1.4" 
+#define AP_WIFI_IP "192.168.1.4"
 #define AP_WIFI_PORT "80"
 enum CKC_WiFI_TASK
 {
@@ -30,9 +31,6 @@ enum CKC_WiFI_TASK
     WIFI_DISCONNECTED,
 };
 CKC_WiFI_TASK WiFi_TASK = MODE_STA;
-
-CKC_MQTT MQTT;
-
 class CKC_PnP
 {
 public:
@@ -40,13 +38,31 @@ public:
     void init(const char *sta_ssid, const char *sta_pass);
     void CKC_state_Connect_STA();
     void CKC_state_Connect_AP();
+
+    void CKC_clear_saved_Wifi();
+    void CKC_save_Wifi_list();
+    void CKC_load_Wifi_list();
+    void CKC_connect_Wifi_list();
+
     void CKC_mode_connected();
     bool CkC_Connected();
     void handler_button();
     void run();
+    struct WifiInfo
+    {
+        String ssid;
+        String password;
+    };
 
 private:
+#define MAX_WIFI_LIST 5
     IPAddress _ipAddr;
+    Preferences preferences;
+    WifiInfo wifiList[MAX_WIFI_LIST];
+    int wifiCount = 0;
+#define EEPROM_SIZE 512
+#define EEPROM_WIFI_START 0
+
     // sta
     char _sta_ssid[64];
     char _sta_pass[32];
@@ -69,7 +85,6 @@ private:
     unsigned long pressStart = 0;
     bool triggered = false;
 };
-
 void CKC_PnP::init(const char *sta_ssid, const char *sta_pass)
 {
     strcpy(_sta_ssid, sta_ssid);
@@ -83,7 +98,6 @@ void CKC_PnP::init(const char *sta_ssid, const char *sta_pass)
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", _sta_ip);
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
     // CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", _mac);
-
     // CKC_LOG_DEBUG("WIFI", "AP_WIFI_NAME: %s", _ap_ssid);
     // CKC_LOG_DEBUG("WIFI", "AP_WIFI_PASS: %s", _ap_pass);
     // CKC_LOG_DEBUG("WIFI", "AP_WIFI_IP: %s", _ap_ip);
@@ -93,7 +107,6 @@ void CKC_PnP::init(const char *sta_ssid, const char *sta_pass)
     t1 = millis();
     pinMode(FLASH_BTN, INPUT_PULLUP); // nút kéo xuống GND khi nhấn
 }
-
 void CKC_PnP::CKC_state_Connect_STA()
 {
     WiFi.mode(WIFI_STA);
@@ -109,14 +122,31 @@ void CKC_PnP::CKC_state_Connect_STA()
     }
     if (WiFi.status() == WL_CONNECTED)
     {
+        // int led = 2;
+        // pinMode(led, OUTPUT);
+        // digitalWrite(led, HIGH);
         CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED :)) ");
         CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
         CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
-        MQTT.begin();
+        serverMQTT.begin();
+        CKC_LOG_DEBUG("TAG", "\r\n"
+                             "  ____  _  __   ____   "
+                             "\r\n"
+                             " / ___|| |/ /  / ___|  "
+                             "\r\n"
+                             "| |    | ' /  | |      "
+                             "\r\n"
+                             "| |___ | . \\  | |___   "
+                             "\r\n"
+                             " \\____||_|\\_\\  \\____|  "
+                             "\r\n");
         WiFi_TASK = MODE_CONNECTED;
     }
     else
     {
+        // int led = 2;
+        // pinMode(led, OUTPUT);
+        // digitalWrite(led, LOW);
         CKC_LOG_DEBUG("WIFI", "WIFI_CONNECT_FALSE !!!!!! ");
         CKC_LOG_DEBUG("WIFI", "RUN_AP");
         CKC_LOG_DEBUG("WIFI", "AP_WIFI_NAME: %s", _ap_ssid);
@@ -131,7 +161,6 @@ void CKC_PnP::CKC_state_Connect_STA()
         t2 = millis();
     }
 }
-
 void CKC_PnP::CKC_state_Connect_AP()
 {
     if (millis() - t2 > 30000)
@@ -152,11 +181,133 @@ void CKC_PnP::CKC_state_Connect_AP()
     }
 }
 
-void CKC_PnP::CKC_mode_connected()
+void CKC_PnP::CKC_clear_saved_Wifi()
 {
-    MQTT.run();
+    EEPROM.begin(EEPROM_SIZE);
+
+    for (int i = 0; i < EEPROM_SIZE; i++)
+    {
+        EEPROM.write(i, 0);
+    }
+    EEPROM.commit();
+    EEPROM.end();
+    wifiCount = 0;
+    CKC_LOG_DEBUG("WIFI", "EEPROM CLEARED");
+}
+void CKC_PnP::CKC_save_Wifi_list()
+{
+    EEPROM.begin(EEPROM_SIZE);
+
+    int addr = EEPROM_WIFI_START;
+
+    EEPROM.write(addr++, wifiCount);
+
+    for (int i = 0; i < wifiCount; i++)
+    {
+        uint8_t ssidLen = wifiList[i].ssid.length();
+        uint8_t passLen = wifiList[i].password.length();
+
+        EEPROM.write(addr++, ssidLen);
+        for (int j = 0; j < ssidLen; j++)
+            EEPROM.write(addr++, wifiList[i].ssid[j]);
+
+        EEPROM.write(addr++, passLen);
+        for (int j = 0; j < passLen; j++)
+            EEPROM.write(addr++, wifiList[i].password[j]);
+    }
+    EEPROM.commit();
+    EEPROM.end();
+
+    CKC_LOG_DEBUG("WIFI", "EEPROM SAVED");
+}
+void CKC_PnP::CKC_load_Wifi_list()
+{
+    EEPROM.begin(EEPROM_SIZE);
+
+    int addr = EEPROM_WIFI_START;
+
+    wifiCount = EEPROM.read(addr++);
+
+    if (wifiCount > MAX_WIFI_LIST)
+        wifiCount = MAX_WIFI_LIST;
+
+    for (int i = 0; i < wifiCount; i++)
+    {
+        uint8_t ssidLen = EEPROM.read(addr++);
+        String ssid = "";
+        for (int j = 0; j < ssidLen; j++)
+            ssid += (char)EEPROM.read(addr++);
+
+        uint8_t passLen = EEPROM.read(addr++);
+        String pass = "";
+        for (int j = 0; j < passLen; j++)
+            pass += (char)EEPROM.read(addr++);
+
+        wifiList[i].ssid = ssid;
+        wifiList[i].password = pass;
+    }
+
+    EEPROM.end();
+
+    CKC_LOG_DEBUG("WIFI", "EEPROM LOADED: %d WIFI", wifiCount);
+}
+void CKC_PnP::CKC_connect_Wifi_list()
+{
+    CKC_load_Wifi_list();
+
+    if (wifiCount == 0)
+    {
+        CKC_LOG_DEBUG("WIFI", "NO WIFI IN EEPROM");
+        return;
+    }
+
+    for (int i = 0; i < wifiCount; i++)
+    {
+        CKC_LOG_DEBUG("WIFI", "TRY: %s", wifiList[i].ssid.c_str());
+
+        WiFi.disconnect(true);
+        delay(200);
+
+        WiFi.mode(WIFI_STA);
+        WiFi.begin(wifiList[i].ssid.c_str(), wifiList[i].password.c_str());
+
+        unsigned long startAttempt = millis();
+
+        while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 15000)
+        {
+            delay(10);
+        }
+
+        if (WiFi.status() == WL_CONNECTED)
+        {
+            CKC_LOG_DEBUG("WIFI", "CONNECTED: %s", wifiList[i].ssid.c_str());
+
+            strcpy(_sta_ssid, wifiList[i].ssid.c_str());
+            strcpy(_sta_pass, wifiList[i].password.c_str());
+
+            WiFi_TASK = MODE_CONNECTED;
+            serverMQTT.begin();
+            return;
+        }
+
+        CKC_LOG_DEBUG("WIFI", "FAILED: %s", wifiList[i].ssid.c_str());
+    }
+
+    CKC_LOG_DEBUG("WIFI", "ALL EEPROM WIFI FAILED");
 }
 
+void CKC_PnP::CKC_mode_connected()
+{
+    serverMQTT.run();
+    if (!CkC_Connected())
+    {
+        WiFi_TASK = MODE_STA;
+        CKC_LOG_DEBUG("WIFI", "RUN_STA");
+        CKC_LOG_DEBUG("WIFI", "STA_WIFI_NAME: %s", _sta_ssid);
+        CKC_LOG_DEBUG("WIFI", "STA_WIFI_PASS: %s", _sta_pass);
+        t1 = millis();
+    }
+}
 bool CKC_PnP::CkC_Connected()
 {
     if (WiFi.status() == WL_CONNECTED)
@@ -168,7 +319,6 @@ bool CKC_PnP::CkC_Connected()
         return false;
     }
 }
-
 void CKC_PnP::handler_button()
 {
 #ifdef BUTTON_MODE
@@ -196,8 +346,6 @@ void CKC_PnP::handler_button()
             WiFi.softAP(_ap_ssid, _ap_pass);
             t2 = millis();
             // TODO: đặt lệnh bạn muốn ở đây
-
-
         }
     }
     else
@@ -210,7 +358,6 @@ void CKC_PnP::handler_button()
 
 #endif
 }
-
 void CKC_PnP::run()
 {
     switch (WiFi_TASK)
@@ -231,7 +378,4 @@ void CKC_PnP::run()
     // CkC_Connected();
 }
 
-
 #endif
-
-

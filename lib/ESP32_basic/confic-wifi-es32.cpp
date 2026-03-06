@@ -6,7 +6,6 @@ const char *SSID = "Phuoc Le 2.4G";
 const char *PASS = "0909028573";
 #include <CKC.h>
 
-
 void setup()
 {
   Serial.begin(115200);
@@ -29,7 +28,7 @@ void loop()
   if (millis() - sendTimer > 3000)
   {
     sendTimer = millis();
-    MQTT.sendData("NHIET_DO", "PLG");
-    MQTT.sendData("DO_AM", "UPDATE");
+    // MQTT.sendData("NHIET_DO", "PLG");
+    // MQTT.sendData("DO_AM", "UPDATE");
   }
 }
