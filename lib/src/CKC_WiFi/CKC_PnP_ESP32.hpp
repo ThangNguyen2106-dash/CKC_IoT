@@ -122,9 +122,6 @@ void CKC_PnP::CKC_state_Connect_STA()
     }
     if (WiFi.status() == WL_CONNECTED)
     {
-        // int led = 2;
-        // pinMode(led, OUTPUT);
-        // digitalWrite(led, HIGH);
         CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED :)) ");
         CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
         CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
@@ -144,9 +141,6 @@ void CKC_PnP::CKC_state_Connect_STA()
     }
     else
     {
-        // int led = 2;
-        // pinMode(led, OUTPUT);
-        // digitalWrite(led, LOW);
         CKC_LOG_DEBUG("WIFI", "WIFI_CONNECT_FALSE !!!!!! ");
         CKC_LOG_DEBUG("WIFI", "RUN_AP");
         CKC_LOG_DEBUG("WIFI", "AP_WIFI_NAME: %s", _ap_ssid);

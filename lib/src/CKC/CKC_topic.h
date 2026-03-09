@@ -4,8 +4,8 @@
 /*
 Topic format:
     ckc/chip/<token>/<prefix topic>
- example SUB:     ckc/chip/PLG2026/arduino_pin/<>   mess  <PAYLOAD>
- example PUB:     ckc/chip/<token>/infor            mess  <DATA>
+ example SUB:     ckc/chip/PLG2026/arduino_pin/   mess  <PAYLOAD>
+ example PUB:     ckc/chip/PLG2026/infor            mess  <DATA>
 */
 #define CKC_BASE_TOPIC "ckc/chip/"
 

@@ -1,11 +1,7 @@
 #ifndef INC_CKC_PIN
 #define INC_CKC_PIN
 
-#include <stdio.h>
-#include <stdint.h>
-#include <Arduino.h>
-#include <ArduinoJson.h>
-#include<CKC/CKC_topic.h>
+#include <CKC/CKC_Type/CKC_Param.hpp>
 
 #define V0 0
 #define V1 1
@@ -514,140 +510,18 @@
 #define V499 499
 #endif
 
-#include <Arduino.h>
-
 #define CKC_MAX_PINS 20
 
-#pragma
-class CKCParam
-{
-public:
-    enum class Type : uint8_t
-    {
-        NONE = 0,
-        INT,
-        FLOAT,
-        BOOL,
-        STRING
-    };
-
-    CKCParam() : type(Type::NONE) {}
-    void add(int v) { intVal = v; }
-    // Constructors
-    CKCParam(int v) { set(v); }
-    CKCParam(float v) { set(v); }
-    CKCParam(bool v) { set(v); }
-    CKCParam(const char *v) { set(v); }
-    CKCParam(const String &v) { set(v); }
-
-    void set(int v)
-    {
-        type = Type::INT;
-        data.i = v;
-    }
-
-    void set(float v)
-    {
-        type = Type::FLOAT;
-        data.f = v;
-    }
-
-    void set(bool v)
-    {
-        type = Type::BOOL;
-        data.b = v;
-    }
-
-    void set(const char *v)
-    {
-        type = Type::STRING;
-        str = v;
-    }
-
-    void set(const String &v)
-    {
-        type = Type::STRING;
-        str = v;
-    }
-
-    // get type
-    Type getType() const { return type; }
-
-    int getInt(int def = 0) const
-    {
-        if (type == Type::INT)
-            return data.i;
-        if (type == Type::BOOL)
-            return data.b ? 1 : 0;
-        if (type == Type::FLOAT)
-            return (int)data.f;
-        if (type == Type::STRING)
-            return str.toInt();
-        return def;
-    }
-
-    float getFloat(float def = 0) const
-    {
-        if (type == Type::FLOAT)
-            return data.f;
-        if (type == Type::INT)
-            return (float)data.i;
-        if (type == Type::BOOL)
-            return data.b ? 1.0f : 0.0f;
-        if (type == Type::STRING)
-            return str.toFloat();
-        return def;
-    }
-
-    bool getBool(bool def = false) const
-    {
-        if (type == Type::BOOL)
-            return data.b;
-        if (type == Type::INT)
-            return data.i != 0;
-        if (type == Type::FLOAT)
-            return data.f != 0;
-        if (type == Type::STRING)
-            return (str == "1" || str == "true" || str == "TRUE");
-        return def;
-    }
-
-    String getString(const String &def = "") const
-    {
-        if (type == Type::STRING)
-            return str;
-        if (type == Type::INT)
-            return String(data.i);
-        if (type == Type::FLOAT)
-            return String(data.f);
-        if (type == Type::BOOL)
-            return data.b ? "true" : "false";
-        return def;
-    }
-
-private:
-    Type type;
-    union
-    {
-        int i;
-        float f;
-        bool b;
-    } data;
-    int intVal;
-    String str;
-};
-//========= Handler =========//
+// //========= Handler =========//
 void CKC_WidgetWrite(uint8_t pin, const CKCParam &param)
 {
     Serial.println("received");
 }
 //========= Macro handler=======//
-#ifndef CKC_UNUSED
-#define CKC_UNUSED __attribute__((__unused__))
-#endif
 #define CKC_ON_WRITE(Pin)                                         \
     void CKC_WidgetWrite##Pin(uint8_t pin, const CKCParam &param) \
         __attribute__((weak, alias("CKC_WidgetWrite")))
+
 // Tạo 0–19
 CKC_ON_WRITE(0);
 CKC_ON_WRITE(1);
@@ -689,70 +563,5 @@ inline void CKC_CallWriteHandler(uint8_t pin, const CKCParam &param)
         return;
     CKCHandlerVector[pin](pin, param);
 }
-
-//==================== Tách dữ liệu ===================//
-inline void CKC_HandleMQTT(const char *topic, const char *payload)
-{
-    if (strncmp(topic, CKC_BASE_TOPIC, strlen(CKC_BASE_TOPIC)) != 0)
-        return;
-    char topicRaw[120];
-    strncpy(topicRaw, topic, sizeof(topicRaw));
-    topicRaw[sizeof(topicRaw) - 1] = '\0';
-
-    char *token = strtok(topicRaw, "/");
-    uint8_t index = 0;
-    uint8_t pin = 255;
-    while (token != nullptr)
-    {
-        if (index == 2 && strcmp(token, "virtual_pin") == 0)
-        {
-            Serial.println("Nhận lệnh điều khiển pin Ảo");
-            token = strtok(nullptr, "/");
-            if (token != nullptr)
-            {
-                pin = atoi(token);
-            }
-            break;
-        }
-        else if (index == 2 && strcmp(token, "arduino_pin") == 0)
-        {
-            Serial.println("Nhận lệnh điều khiển pin Arduino");
-            token = strtok(nullptr, "/");
-            if (token != nullptr)
-            {
-                pin = atoi(token);
-            }
-            break;
-        }
-
-        token = strtok(nullptr, "/");
-        index++;
-    }
-    if (pin == 255)
-        return;
-    // PARSE JSON
-
-    // StaticJsonDocument<128> doc;
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, payload);
-
-    if (error)
-        return;
-    if (!doc["value"].is<int>())
-        return;
-
-    int value = doc["value"];
-    CKCParam param;
-    param.add(value);
-    // CKC_CallWriteHandler(pin, param);
-}
-
-// CKC_WRITE(V5)
-// {
-//     int value = param.getInt();
-//     digitalWrite(5, value);
-//     Serial.print("V5 = ");
-//     Serial.println(value);
-// }
 
 #endif

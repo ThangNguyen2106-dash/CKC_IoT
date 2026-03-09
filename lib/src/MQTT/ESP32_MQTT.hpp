@@ -1,13 +1,14 @@
 #ifndef CKC_ESP32_MQTT_HPP
 #define CKC_ESP32_MQTT_HPP
 #include <Arduino.h>
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <WiFiClientSecure.h>
-#include <WiFiUdp.h>
 #include <MQTT/NPT_Client/NTPClient.h>
 #include <MQTT/PubSubClient/PubSubClient.h>
-#include <stdint.h>
+#include <CKC/CKC_Type/CKC_Param.hpp>
+// #include <WiFi.h>
+// #include <HTTPClient.h>
+// #include <WiFiClientSecure.h>
+// #include <WiFiUdp.h>
+// #include <stdint.h>
 
 const char *MQTT_Server = "1e5f657dbd934df698af2d814b1fce1a.s1.eu.hivemq.cloud";
 const int16_t MQTT_PORT = 8883;
@@ -39,10 +40,21 @@ WiFiClientSecure server;
 PubSubClient mqttClient(server);
 void mqttCallback(char *topic, byte *payload, unsigned int length)
 {
-    String msg;
-    for (int i = 0; i < length; i++)
-        msg += (char)payload[i];
+    // String msg;
+    // char payloadmsg[128];
+    // for (int i = 0; i < length; i++)
+    //     msg += (char)payload[i];
+    // // CKC_HandleMQTT(topic, payloadmsg);
+    // Serial.print("Topic: ");
+    // Serial.println(topic);
+    // Serial.print("Message: ");
+    // Serial.println(msg);
+
+    char msg[128];
+    memcpy(msg, payload, length);
+    msg[length] = '\0';
     CKC_LOG_DEBUG("SUB_MQTT", "Topic %s  mess: %s", topic, msg);
+    CKC_HandleMQTT(topic, msg);
 }
 
 template <class MQTT>
@@ -64,7 +76,6 @@ inline void CKC_MQTT<MQTT>::CKC_subscribeTopic(const char *baseTopic, const char
 {
     char NameTopic[100];
     snprintf(NameTopic, sizeof(NameTopic), "%s%s", baseTopic, Topic_ne);
-
     mqttClient.subscribe(NameTopic);
 }
 template <class MQTT>
@@ -91,7 +102,7 @@ inline void CKC_MQTT<MQTT>::CKC_publishData(const char *data)
 {
     char NameTopic[100];
     snprintf(NameTopic, sizeof(NameTopic), "%s%s", CKC_MQTT_BASE_TOPIC, CKC_PUB_PREFIX_INFO_TOPIC);
-    mqttClient.publish(NameTopic, data);
+    // mqttClient.publish(NameTopic, data);
 }
 
 template <class MQTT>
@@ -102,7 +113,10 @@ inline void CKC_MQTT<MQTT>::begin()
     Serial.print("[CKC] MQTT connecting...");
     if (mqttClient.connect(MQTT_ID, MQTT_USERNAME, MQTT_PASS))
     {
-        Serial.println("OK");
+        // int led = 2;
+        // Serial.println("OK");
+        // pinMode(led, OUTPUT);
+        // digitalWrite(led, HIGH);
         mqttClient.setCallback(mqttCallback);
         this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_DOWN_TOPIC);
         this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_ARDUINO_TOPIC);
@@ -113,6 +127,9 @@ inline void CKC_MQTT<MQTT>::begin()
     else
     {
         Serial.print("FAILED, rc=");
+        // int led = 2;
+        // pinMode(led, OUTPUT);
+        // digitalWrite(led, LOW);
         Serial.println(mqttClient.state());
     }
 }
@@ -124,15 +141,15 @@ inline void CKC_MQTT<MQTT>::run()
         mqttClient.loop();
     }
     static unsigned long PLGTimer = 0;
-    if (millis() - PLGTimer > 2000)
-    {
-        char DATA_[20];
-        float temp = random(300, 400) / 10.0;
-        snprintf(DATA_, sizeof(DATA_), "%.1f", temp);
-        PLGTimer = millis();
-        this->CKC_publishData(DATA_);
-        CKC_LOG_DEBUG("PUB_MQTT", "Topic %s  mess: %s", CKC_MQTT_BASE_TOPIC CKC_PUB_PREFIX_INFO_TOPIC, DATA_);
-    }
+    // if (millis() - PLGTimer > 2000)
+    // {
+    //     char DATA_[20];
+    //     float temp = random(300, 400) / 10.0;
+    //     snprintf(DATA_, sizeof(DATA_), "%.1f", temp);
+    //     PLGTimer = millis();
+    //     this->CKC_publishData(DATA_);
+    //     CKC_LOG_DEBUG("PUB_MQTT", "Topic %s  mess: %s", CKC_MQTT_BASE_TOPIC CKC_PUB_PREFIX_INFO_TOPIC, DATA_);
+    // }
 }
 CKC_MQTT<PubSubClient> serverMQTT;
 #endif // END CKC_ESP32_MQTT_HPP

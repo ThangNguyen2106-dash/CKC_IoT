@@ -139,3 +139,56 @@ inline void CKC_HandleMQTT(const char *topic, const char *payload)
 //     Serial.printf("V5 received: %d\n", value);
 //     digitalWrite(2, value);
 // }
+
+
+
+
+
+
+
+    // strncpy(topicRaw, topic, sizeof(topicRaw));
+    // topicRaw[sizeof(topicRaw) - 1] = '\0';
+
+    // while (token != nullptr)
+    // {
+    //     if (index == 2 && strcmp(token, "virtual_pin") == 0)
+    //     {
+    //         Serial.println("Nhận lệnh điều khiển pin Ảo");
+    //         token = strtok(nullptr, "/");
+    //         if (token != nullptr)
+    //         {
+    //             pin = atoi(token);
+    //         }
+    //         break;
+    //     }
+    //     else if (index == 2 && strcmp(token, "arduino_pin") == 0)
+    //     {
+    //         Serial.println("Nhận lệnh điều khiển pin Arduino");
+    //         token = strtok(nullptr, "/");
+    //         if (token != nullptr)
+    //         {
+    //             pin = atoi(token);
+    //         }
+    //         break;
+    //     }
+
+    //     token = strtok(nullptr, "/");
+    //     index++;
+    // }
+    // if (pin == 255)
+    //     return;
+    // // PARSE JSON
+
+    // // StaticJsonDocument<128> doc;
+    // JsonDocument doc;
+    // DeserializationError error = deserializeJson(doc, payload);
+
+    // if (error)
+    //     return;
+    // if (!doc["value"].is<int>())
+    //     return;
+
+    // int value = doc["value"];
+    // CKCParam param;
+    // param.add(value);
+    // CKC_CallWriteHandler(pin, param);
