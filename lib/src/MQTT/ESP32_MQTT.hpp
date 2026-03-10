@@ -4,11 +4,6 @@
 #include <MQTT/NPT_Client/NTPClient.h>
 #include <MQTT/PubSubClient/PubSubClient.h>
 #include <CKC/CKC_Type/CKC_Param.hpp>
-// #include <WiFi.h>
-// #include <HTTPClient.h>
-// #include <WiFiClientSecure.h>
-// #include <WiFiUdp.h>
-// #include <stdint.h>
 
 const char *MQTT_Server = "1e5f657dbd934df698af2d814b1fce1a.s1.eu.hivemq.cloud";
 const int16_t MQTT_PORT = 8883;
@@ -40,21 +35,12 @@ WiFiClientSecure server;
 PubSubClient mqttClient(server);
 void mqttCallback(char *topic, byte *payload, unsigned int length)
 {
-    // String msg;
-    // char payloadmsg[128];
-    // for (int i = 0; i < length; i++)
-    //     msg += (char)payload[i];
-    // // CKC_HandleMQTT(topic, payloadmsg);
-    // Serial.print("Topic: ");
-    // Serial.println(topic);
-    // Serial.print("Message: ");
-    // Serial.println(msg);
-
     char msg[128];
     memcpy(msg, payload, length);
     msg[length] = '\0';
     CKC_LOG_DEBUG("SUB_MQTT", "Topic %s  mess: %s", topic, msg);
-    CKC_HandleMQTT(topic, msg);
+    CKC_PARSE(topic, msg);
+    CKC_PARAM();
 }
 
 template <class MQTT>
@@ -102,7 +88,7 @@ inline void CKC_MQTT<MQTT>::CKC_publishData(const char *data)
 {
     char NameTopic[100];
     snprintf(NameTopic, sizeof(NameTopic), "%s%s", CKC_MQTT_BASE_TOPIC, CKC_PUB_PREFIX_INFO_TOPIC);
-    // mqttClient.publish(NameTopic, data);
+    mqttClient.publish(NameTopic, data);
 }
 
 template <class MQTT>
@@ -113,10 +99,7 @@ inline void CKC_MQTT<MQTT>::begin()
     Serial.print("[CKC] MQTT connecting...");
     if (mqttClient.connect(MQTT_ID, MQTT_USERNAME, MQTT_PASS))
     {
-        // int led = 2;
-        // Serial.println("OK");
-        // pinMode(led, OUTPUT);
-        // digitalWrite(led, HIGH);
+        Serial.println("OK");
         mqttClient.setCallback(mqttCallback);
         this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_DOWN_TOPIC);
         this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_ARDUINO_TOPIC);
@@ -127,9 +110,6 @@ inline void CKC_MQTT<MQTT>::begin()
     else
     {
         Serial.print("FAILED, rc=");
-        // int led = 2;
-        // pinMode(led, OUTPUT);
-        // digitalWrite(led, LOW);
         Serial.println(mqttClient.state());
     }
 }

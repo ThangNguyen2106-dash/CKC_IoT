@@ -74,7 +74,7 @@ private:
     char _ap_pass[32] = AP_WIFI_PASS;
     char _ap_ip[16] = AP_WIFI_IP;
     char _ap_port[5] = AP_WIFI_PORT;
-    char _mac[12];
+    char _mac[18];
     // var local
     unsigned long _SendRssiTime;
     unsigned int count_wifiConnect;
@@ -344,7 +344,6 @@ void CKC_PnP::handler_button()
     }
     else
     {
-
         // nhả nút thì reset lại
         pressStart = 0;
         triggered = false;

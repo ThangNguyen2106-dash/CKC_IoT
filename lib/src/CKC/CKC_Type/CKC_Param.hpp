@@ -1,10 +1,11 @@
 #ifndef INC_CKC_Param
-#define INC_CKC_Parm
+#define INC_CKC_Param
 #include <stdio.h>
 #include <stdint.h>
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <CKC/CKC_topic.h>
+
 #pragma
 class CKCParam
 {
@@ -57,7 +58,7 @@ public:
         str = v;
     }
 
-    // get type
+    // get type data
     Type getType() const { return type; }
 
     int getInt(int def = 0) const
@@ -112,6 +113,43 @@ public:
         return def;
     }
 
+    // add SUB_PREFIX after parse
+    void addSUB_PREFIX(String subprefix_H)
+    {
+
+        this->subprefix_h = subprefix_H;
+    }
+    // add payload after parse
+    void addpin_(int Pin_H)
+    {
+        this->Pin_h = Pin_H;
+    }
+    void addtype_(String type_H)
+    {
+        this->type_h = type_H;
+    }
+    void addvalue_(int value_H)
+    {
+        this->value_h = value_H;
+    }
+    // get payload after parse
+    int getvalue_()
+    {
+        return value_h;
+    }
+    int getpin_()
+    {
+        return Pin_h;
+    }
+    String gettype_()
+    {
+        return type_h;
+    }
+    String getsubprefix()
+    {
+        return subprefix_h;
+    }
+
 private:
     Type type;
     union
@@ -122,14 +160,18 @@ private:
     } data;
     int intVal;
     String str;
-};
 
+    String type_h, subprefix_h;
+    int value_h, Pin_h;
+};
+CKCParam PARSE;
 //==================== Tách dữ liệu ===================//
-inline void CKC_HandleMQTT(const char *topic, const char *payload)
+inline void CKC_PARSE(const char *topic, const char *payload)
 {
     if (strncmp(topic, CKC_BASE_TOPIC, strlen(CKC_BASE_TOPIC)) != 0)
         return;
     String topicStr = topic;
+
     String payloadStr = payload;
 
     StaticJsonDocument<128> doc;
@@ -139,9 +181,6 @@ inline void CKC_HandleMQTT(const char *topic, const char *payload)
         Serial.println("JSON lỗi");
         return;
     }
-    int pin_ = doc["GPIO"];
-    int value_ = doc["value"];
-    String type_ = doc["type"];
 
     String base_Topic;
     String token;
@@ -156,7 +195,11 @@ inline void CKC_HandleMQTT(const char *topic, const char *payload)
     token = topicStr.substring(p2 + 1, p3);
     sub_Prefix = topicStr.substring(p3 + 1, p4);
 
-    Serial.println("Tách chuỗi");
+    int pin_ = doc["GPIO"];
+    int value_ = doc["value"];
+    String type_ = doc["type"];
+
+    Serial.println("==============Tách chuỗi==================");
     Serial.print("Base topic: ");
     Serial.println(base_Topic);
 
@@ -166,47 +209,54 @@ inline void CKC_HandleMQTT(const char *topic, const char *payload)
     Serial.print("SUB_PREFIX: ");
     Serial.println(sub_Prefix);
 
+    Serial.print("GPIO: ");
+    Serial.println(pin_);
+
+    Serial.print("TYPE: ");
+    Serial.println(type_);
+
+    Serial.print("VALUE: ");
+    Serial.println(value_);
+
+    PARSE.addpin_(pin_);
+    PARSE.addtype_(type_);
+    PARSE.addvalue_(value_);
+    PARSE.addSUB_PREFIX(sub_Prefix);
+}
+//==================== Xử lý dữ liệu ===================//
+void CKC_PARAM()
+{
+    String type = PARSE.gettype_();
+    int value = PARSE.getvalue_();
+    int pin = PARSE.getpin_();
+    String sub_Prefix = PARSE.getsubprefix();
     if (sub_Prefix == "arduino_pin")
     {
-        // Xử lý theo chân arduino
-        Serial.println("Nhận lệnh điều khiển chân Arduino");
-
-        // Serial.print("Pin control: ");
-        // Serial.println(pin_);
-
-        // Serial.print("Value Pin: ");
-        // Serial.println(value_);
-
-        if (type_ == "DI") // Digital Input
+        if (type == "DI") // Digital Input
         {
-            pinMode(pin_, INPUT);
+            pinMode(pin, INPUT);
         }
-        else if (type_ == "AI") // Analog Input
+        else if (type == "AI") // Analog Input
         {
-            pinMode(pin_, INPUT);
+            pinMode(pin, INPUT);
         }
 
-        else if (type_ == "DO") // Digital OUTPUT
+        else if (type == "DO") // Digital OUTPUT
         {
-            pinMode(pin_, OUTPUT);
-            CKCParam param(value_);
-            digitalWrite(pin_, value_);
+            pinMode(pin, OUTPUT);
+            CKCParam param(value);
+            digitalWrite(pin, value);
         }
-        else if (type_ == "AO") // Analog OUTPUT
+        else if (type == "AO") // Analog OUTPUT
         {
-            pinMode(pin_, OUTPUT);
-            CKCParam param(value_);
-            analogWrite(pin_, value_);
+            pinMode(pin, OUTPUT);
+            CKCParam param(value);
+            analogWrite(pin, value);
         }
-
-        // pinMode(pin_, OUTPUT);
-        // CKCParam param(value_);
-        // digitalWrite(pin_, value_);
     }
     if (sub_Prefix == "virtual_pin")
     {
         Serial.println("Nhận lệnh điều khiển chân ảo");
-        // xử lý theo chân ảo
     }
 }
 #endif

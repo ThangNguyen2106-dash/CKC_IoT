@@ -53,7 +53,7 @@
 #define V47 47
 #define V48 48
 #define V49 49
-#if defined(ERA_100_PINS)
+#if defined(CKC_100_PINS)
 #define V50 50
 #define V51 51
 #define V52 52
@@ -105,7 +105,7 @@
 #define V98 98
 #define V99 99
 #endif
-#if defined(ERA_255_PINS)
+#if defined(CKC_255_PINS)
 #define V100 100
 #define V101 101
 #define V102 102
@@ -263,7 +263,7 @@
 #define V254 254
 #define V255 255
 #endif
-#if defined(ERA_500_PINS)
+#if defined(CKC_500_PINS)
 #define V256 256
 #define V257 257
 #define V258 258
@@ -511,6 +511,11 @@
 #endif
 
 #define CKC_MAX_PINS 20
+typedef enum : uint8_t // tạo ra các danh sách các giá trị có ý nghĩa
+{
+    CKC_PIN_CONFIG = 0x00,
+    CKC_AUTO_CONFIG = 0x01
+} CKC_CONFIG_TYPE;
 
 // //========= Handler =========//
 void CKC_WidgetWrite(uint8_t pin, const CKCParam &param)
