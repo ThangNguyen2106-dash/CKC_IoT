@@ -26,10 +26,10 @@ public:
 
     void CKC_publishTopic(const char *baseTopic, const char *Topic_ne);
     void CKC_unpublishTopic(const char *baseTopic, const char *Topic_ne);
-
     void CKC_publishData(const char *data);
 
 private:
+    String data_h;
 };
 WiFiClientSecure server;
 PubSubClient mqttClient(server);
@@ -120,7 +120,7 @@ inline void CKC_MQTT<MQTT>::run()
     {
         mqttClient.loop();
     }
-    static unsigned long PLGTimer = 0;
+    // static unsigned long PLGTimer = 0;
     // if (millis() - PLGTimer > 2000)
     // {
     //     char DATA_[20];

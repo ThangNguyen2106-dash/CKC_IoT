@@ -2,8 +2,6 @@
 #define CKC_ESP32
 
 #include <Arduino.h>
-// #include <IPAddress.h>
-// #include <WiFiAP.h>
 #include <WiFiClient.h>
 #include <Preferences.h>
 #include <EEPROM.h>

@@ -5,6 +5,7 @@
 const char *SSID = "MakerSpaceLab_2.4Ghz";
 const char *PASS = "Maker2025";
 #include <CKC.h>
+
 void setup()
 {
   Serial.begin(115200);
@@ -13,4 +14,9 @@ void setup()
 void loop()
 {
   CKC.run();
+  static unsigned long PLGTimer = 0;
+  if (millis() - PLGTimer > 2000)
+  {
+    PLGTimer = millis();
+  }
 }
