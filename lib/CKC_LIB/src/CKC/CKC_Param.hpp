@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include <CKC/CKC_topic.h>
 
 #pragma
@@ -164,99 +163,45 @@ private:
     String type_h, subprefix_h;
     int value_h, Pin_h;
 };
-CKCParam PARSE;
-//==================== Tách dữ liệu ===================//
-inline void CKC_PARSE(const char *topic, const char *payload)
+
+CKCParam parseItem(cJSON *item)
 {
-    if (strncmp(topic, CKC_BASE_TOPIC, strlen(CKC_BASE_TOPIC)) != 0)
-        return;
-    String topicStr = topic;
+    CKCParam value;
 
-    String payloadStr = payload;
+    if (item == nullptr)
+        return value;
 
-    StaticJsonDocument<128> doc;
-    DeserializationError error = deserializeJson(doc, payloadStr);
-    if (error)
+    if (cJSON_IsNumber(item))
     {
-        Serial.println("JSON lỗi");
-        return;
+        // phân biệt int vs float
+        double val = item->valuedouble;
+        if (val == (int)val)
+        {
+            value.set((int)val);
+            CKC_LOG_DEBUG("PARAM", "value int : %d", value.getInt());
+        }
+        else
+        {
+            value.set((float)val);            
+            CKC_LOG_DEBUG("PARAM", "value float : %f", value.getFloat());
+        }
+    }
+    else if (cJSON_IsBool(item))
+    {
+        value.set(cJSON_IsTrue(item));
+        value.getBool();
+    }
+    else if (cJSON_IsString(item))
+    {
+        value.set(item->valuestring);        
+        CKC_LOG_DEBUG("PARAM", "value string : %s", item->valuestring);
+    }
+    else
+    {
+        // fallback
     }
 
-    String base_Topic;
-    String token;
-    String sub_Prefix;
-
-    int p1 = topicStr.indexOf('/');
-    int p2 = topicStr.indexOf('/', p1 + 1);
-    int p3 = topicStr.indexOf('/', p2 + 1);
-    int p4 = topicStr.indexOf('/', p3 + 1);
-
-    base_Topic = topicStr.substring(0, p2);
-    token = topicStr.substring(p2 + 1, p3);
-    sub_Prefix = topicStr.substring(p3 + 1, p4);
-
-    int pin_ = doc["GPIO"];
-    int value_ = doc["value"];
-    String type_ = doc["type"];
-
-    Serial.println("==============Tách chuỗi==================");
-    Serial.print("Base topic: ");
-    Serial.println(base_Topic);
-
-    Serial.print("Token: ");
-    Serial.println(token);
-
-    Serial.print("SUB_PREFIX: ");
-    Serial.println(sub_Prefix);
-
-    Serial.print("GPIO: ");
-    Serial.println(pin_);
-
-    Serial.print("TYPE: ");
-    Serial.println(type_);
-
-    Serial.print("VALUE: ");
-    Serial.println(value_);
-
-    PARSE.addpin_(pin_);
-    PARSE.addtype_(type_);
-    PARSE.addvalue_(value_);
-    PARSE.addSUB_PREFIX(sub_Prefix);
+    return value;
 }
-//==================== Xử lý dữ liệu ===================//
-void CKC_PARAM()
-{
-    String type = PARSE.gettype_();
-    int value = PARSE.getvalue_();
-    int pin = PARSE.getpin_();
-    String sub_Prefix = PARSE.getsubprefix();
-    if (sub_Prefix == "arduino_pin")
-    {
-        if (type == "DI") // Digital Input
-        {
-            pinMode(pin, INPUT);
-        }
-        else if (type == "AI") // Analog Input
-        {
-            pinMode(pin, INPUT);
-        }
 
-        else if (type == "DO") // Digital OUTPUT
-        {
-            pinMode(pin, OUTPUT);
-            CKCParam param(value);
-            digitalWrite(pin, value);
-        }
-        else if (type == "AO") // Analog OUTPUT
-        {
-            pinMode(pin, OUTPUT);
-            CKCParam param(value);
-            analogWrite(pin, value);
-        }
-    }
-    if (sub_Prefix == "virtual_pin")
-    {
-        Serial.println("Nhận lệnh điều khiển chân ảo");
-    }
-}
 #endif
