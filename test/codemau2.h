@@ -2,231 +2,290 @@
 #define CKC_ESP32
 
 #include <Arduino.h>
-#include <WiFi.h>
-#include <WebServer.h>
-#include <Preferences.h>
+// #include <IPAddress.h>
+// #include <WiFiAP.h>
+#include <WiFiClient.h>
+#include <CKC/CKC_API.hpp>
+#include <MQTT/ESP32_MQTT.hpp>
 
-#define WIFI_MAX 5
-#define FLASH_BTN 0
+#define WIFI_AP_IP IPAddress(192, 168, 27, 1)
+#define WIFI_AP_Subnet IPAddress(255, 255, 255, 0)
 
+char STA_WIFI_NAME[32];
+char STA_WIFI_PASS[32];
+#define STA_WIFI_PORT "80"
+
+#define AP_WIFI_NAME "CKC:"
+#define AP_WIFI_PASS "CKC@2026"
+#define AP_WIFI_IP "192.168.1.4"
+#define AP_WIFI_PORT "80"
 enum CKC_WiFI_TASK
 {
+    MODE_CONFIG_WIFI,
     MODE_STA,
     MODE_AP,
-    MODE_CONNECTED
+    MODE_AP_STA,
+    MODE_CONNECTED,
+    WIFI_DISCONNECTED,
 };
-
 CKC_WiFI_TASK WiFi_TASK = MODE_STA;
-
 template <class Transport>
 class CKC_PnP
 {
 public:
-    void init();
+    CKC_PnP() {};
+    void init(const char *sta_ssid, const char *sta_pass);
+    void CKC_state_Connect_STA();
+    void CKC_state_Connect_AP();
+    void CKC_mode_connected();
+    void CKC_mode_Config();
+    bool CkC_Connected();
+    bool CKC_connectAP();
+    void handler_button();
     void run();
 
 private:
-    WebServer server{80};
-    Preferences prefs;
+    IPAddress _ipAddr;
+    // sta
+    char _sta_ssid[64];
+    char _sta_pass[32];
+    char _sta_ip[16];
+    char _sta_port[5] = STA_WIFI_PORT;
+    int _rssi;
+    // ap
+    char _ap_ssid[64] = AP_WIFI_NAME;
+    char _ap_pass[32] = AP_WIFI_PASS;
+    char _ap_ip[16] = AP_WIFI_IP;
+    char _ap_port[5] = AP_WIFI_PORT;
+    char _mac[12];
+    // var local
+    unsigned long _SendRssiTime;
+    unsigned int count_wifiConnect;
+    unsigned long t0, t1, t2, t3, t4;
+    String _ping;
+    int time_sta = 20000;
+    int time_ap = 30000;
+#define FLASH_BTN 0 // nút BOOT/FLASH trên ESP32 thường là GPIO0
 
-    String ssid_list[WIFI_MAX];
-    String pass_list[WIFI_MAX];
-
-    char ap_ssid[32];
-    const char *ap_pass = "12345678";
-
-    unsigned long t0;
-
-    void loadWiFi();
-    void saveWiFi(String ssid, String pass);
-    bool connectMultiWiFi();
-
-    void startAP();
-    void handleAP();
-    void setupWeb();
-
-    void handleButton();
+    unsigned long pressStart = 0;
+    bool triggered = false;
 };
 
-// ===== INIT =====
-template <class T>
-void CKC_PnP<T>::init()
+template <class Transport>
+inline void CKC_PnP<Transport>::init(const char *sta_ssid, const char *sta_pass)
 {
-    Serial.begin(115200);
+    strcpy(_sta_ssid, sta_ssid);
+    strcpy(_sta_pass, sta_pass);
+    String MAC = WiFi.macAddress();
+    strcpy(_mac, MAC.c_str());
+    snprintf(_ap_ssid, sizeof(_ap_ssid), "%s%s", _ap_ssid, _mac);
 
-    loadWiFi();
+    CKC_LOG_DEBUG("WIFI", "STA_WIFI_NAME: %s", _sta_ssid);
+    CKC_LOG_DEBUG("WIFI", "STA_WIFI_PASS: %s", _sta_pass);
+    CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", _sta_ip);
+    CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
+    // CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", _mac);
 
-    String mac = WiFi.macAddress();
-    mac.replace(":", "");
-    snprintf(ap_ssid, sizeof(ap_ssid), "CKC_%s", mac.c_str());
+    // CKC_LOG_DEBUG("WIFI", "AP_WIFI_NAME: %s", _ap_ssid);
+    // CKC_LOG_DEBUG("WIFI", "AP_WIFI_PASS: %s", _ap_pass);
+    // CKC_LOG_DEBUG("WIFI", "AP_WIFI_IP: %s", _ap_ip);
+    // CKC_LOG_DEBUG("WIFI", "AP_WIFI_PORT: %s", _ap_port);
 
-    pinMode(FLASH_BTN, INPUT_PULLUP);
+    delay(100);
+    t1 = millis();
+    pinMode(FLASH_BTN, INPUT_PULLUP); // nút kéo xuống GND khi nhấn
 }
-
-// ===== LOAD WIFI =====
-template <class T>
-void CKC_PnP<T>::loadWiFi()
-{
-    prefs.begin("wifi", true);
-    for (int i = 0; i < WIFI_MAX; i++)
-    {
-        ssid_list[i] = prefs.getString(("ssid" + String(i)).c_str(), "");
-        pass_list[i] = prefs.getString(("pass" + String(i)).c_str(), "");
-    }
-    prefs.end();
-}
-
-// ===== SAVE WIFI =====
-template <class T>
-void CKC_PnP<T>::saveWiFi(String ssid, String pass)
-{
-    prefs.begin("wifi", false);
-
-    for (int i = WIFI_MAX - 1; i > 0; i--)
-    {
-        prefs.putString(("ssid" + String(i)).c_str(), ssid_list[i - 1]);
-        prefs.putString(("pass" + String(i)).c_str(), pass_list[i - 1]);
-    }
-
-    prefs.putString("ssid0", ssid);
-    prefs.putString("pass0", pass);
-
-    prefs.end();
-}
-
-// ===== MULTI WIFI CONNECT =====
-template <class T>
-bool CKC_PnP<T>::connectMultiWiFi()
+template <class Transport>
+inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
 {
     WiFi.mode(WIFI_STA);
-
-    for (int i = 0; i < WIFI_MAX; i++)
+    WiFi.begin(_sta_ssid, _sta_pass);
+    while (WiFi.status() != WL_CONNECTED && millis() - t1 <= this->time_sta)
     {
-        if (ssid_list[i] == "")
-            continue;
-
-        Serial.println("Try: " + ssid_list[i]);
-
-        WiFi.begin(ssid_list[i].c_str(), pass_list[i].c_str());
-
-        unsigned long start = millis();
-
-        while (millis() - start < 8000)
+        if (millis() - t0 > 1000)
         {
-            if (WiFi.status() == WL_CONNECTED)
-            {
-                Serial.println("Connected: " + ssid_list[i]);
-                return true;
-            }
-            delay(200);
+            CKC_LOG_DEBUG("WIFI", "CONNECTING ___ %ds\r", (millis() - t1) / 1000);
+            t0 = millis();
+        }
+        handler_button();
+    }
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED :)) ");
+        CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
+        CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
+        serverMQTT.begin();
+        CKC_LOG_DEBUG("TAG", "\r\n"
+                             "  ____  _  __   ____   "
+                             "\r\n"
+                             " / ___|| |/ /  / ___|  "
+                             "\r\n"
+                             "| |    | ' /  | |      "
+                             "\r\n"
+                             "| |___ | . \\  | |___   "
+                             "\r\n"
+                             " \\____||_|\\_\\  \\____|  "
+                             "\r\n");
+        WiFi_TASK = MODE_CONNECTED;
+    }
+    else
+    {
+        CKC_LOG_DEBUG("WIFI", "WIFI_CONNECT_FALSE !!!!!! ");
+        CKC_LOG_DEBUG("WIFI", "RUN_AP");
+        CKC_LOG_DEBUG("WIFI", "AP_WIFI_NAME: %s", _ap_ssid);
+        CKC_LOG_DEBUG("WIFI", "AP_WIFI_PASS: %s", _ap_pass);
+        CKC_LOG_DEBUG("WIFI", "AP_WIFI_IP: %s", _ap_ip);
+        CKC_LOG_DEBUG("WIFI", "AP_WIFI_PORT: %s", _ap_port);
+        WiFi_TASK = MODE_AP;
+        WiFi.mode(WIFI_OFF);
+        WiFi.mode(WIFI_AP);
+        _ipAddr.fromString(_ap_ip);
+        WiFi.softAP(_ap_ssid, _ap_pass);
+        t2 = millis();
+    }
+}
+template <class Transport>
+inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
+{
+    if (millis() - t2 > this->time_ap)
+    {
+        WiFi_TASK = MODE_STA;
+        CKC_LOG_DEBUG("WIFI", "RUN_STA");
+        CKC_LOG_DEBUG("WIFI", "STA_WIFI_NAME: %s", _sta_ssid);
+        CKC_LOG_DEBUG("WIFI", "STA_WIFI_PASS: %s", _sta_pass);
+        t1 = millis();
+    }
+    else
+    {
+        if (millis() - t3 > 1000)
+        {
+            CKC_LOG_DEBUG("WIFI", "Waiting ___ %ds\r", (millis() - t2) / 1000);
+            t3 = millis();
         }
     }
-
-    return false;
-}
-
-// ===== START AP =====
-template <class T>
-void CKC_PnP<T>::startAP()
-{
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(ap_ssid, ap_pass);
-
-    Serial.println("AP MODE");
-    Serial.println(ap_ssid);
-
-    setupWeb();
-}
-
-// ===== WEB SERVER =====
-template <class T>
-void CKC_PnP<T>::setupWeb()
-{
-    server.on("/", [this]()
-              {
-        String html = "<h2>WiFi Config</h2>";
-        html += "<form action='/save'>";
-        html += "SSID:<input name='ssid'><br>";
-        html += "PASS:<input name='pass'><br>";
-        html += "<input type='submit'></form>";
-        server.send(200, "text/html", html); });
-
-    server.on("/save", [this]()
-              {
-        String s = server.arg("ssid");
-        String p = server.arg("pass");
-
-        saveWiFi(s, p);
-
-        server.send(200, "text/html", "Saved! Restart...");
-        delay(2000);
-        WiFi_TASK = MODE_STA; });
-
-    server.begin();
-}
-
-// ===== HANDLE AP =====
-template <class T>
-void CKC_PnP<T>::handleAP()
-{
-    server.handleClient();
-}
-
-// ===== BUTTON =====
-template <class T>
-void CKC_PnP<T>::handleButton()
-{
-    static unsigned long pressTime = 0;
-
-    if (digitalRead(FLASH_BTN) == LOW)
+    if (this->CKC_connectAP())
     {
-        if (pressTime == 0)
-            pressTime = millis();
+        WiFi_TASK = MODE_AP_STA;
+        CKC_LOG_DEBUG("WIFI", "RUN_STA_AP");
+    }
+}
+template <class Transport>
+inline void CKC_PnP<Transport>::CKC_mode_connected()
+{
+    serverMQTT.run();
+    if (!CkC_Connected())
+    {
+        WiFi_TASK = MODE_STA;
+        CKC_LOG_DEBUG("WIFI", "RUN_STA");
+        CKC_LOG_DEBUG("WIFI", "STA_WIFI_NAME: %s", _sta_ssid);
+        CKC_LOG_DEBUG("WIFI", "STA_WIFI_PASS: %s", _sta_pass);
+        t1 = millis();
+    }
+    if (!serverMQTT._connect())
+    {
+        serverMQTT.begin();
+        
+    }
+}
 
-        if (millis() - pressTime > 5000)
+template <class Transport>
+inline bool CKC_PnP<Transport>::CkC_Connected()
+{
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+template <class Transport>
+inline bool CKC_PnP<Transport>::CKC_connectAP()
+{
+    if (WiFi.softAPgetStationNum() >0)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+template <class Transport>
+inline void CKC_PnP<Transport>::handler_button()
+{
+#ifdef BUTTON_MODE
+    bool pressed = (digitalRead(FLASH_BTN) == LOW); // nhấn = LOW
+
+    if (pressed)
+    {
+        if (pressStart == 0)
+            pressStart = millis();
+        // giữ đủ 5s và chỉ kích 1 lần
+        if (!triggered && (millis() - pressStart >= 5000))
         {
-            Serial.println("Force AP");
+            triggered = true;
+            CKC_LOG_DEBUG("WIFI", "MODE_AP_run:");
+            CKC_LOG_DEBUG("WIFI", "WIFI_CONNECT_FALSE !!!!!! ");
+            CKC_LOG_DEBUG("WIFI", "RUN_AP");
+            CKC_LOG_DEBUG("WIFI", "AP_WIFI_NAME: %s", _ap_ssid);
+            CKC_LOG_DEBUG("WIFI", "AP_WIFI_PASS: %s", _ap_pass);
+            CKC_LOG_DEBUG("WIFI", "AP_WIFI_IP: %s", _ap_ip);
+            CKC_LOG_DEBUG("WIFI", "AP_WIFI_PORT: %s", _ap_port);
             WiFi_TASK = MODE_AP;
-            pressTime = 0;
+            WiFi.mode(WIFI_OFF);
+            WiFi.mode(WIFI_AP);
+            _ipAddr.fromString(_ap_ip);
+            WiFi.softAP(_ap_ssid, _ap_pass);
+            t2 = millis();
+            // TODO: đặt lệnh bạn muốn ở đây
         }
     }
     else
     {
-        pressTime = 0;
+
+        // nhả nút thì reset lại
+        pressStart = 0;
+        triggered = false;
     }
+
+#endif
 }
 
-// ===== RUN =====
-template <class T>
-void CKC_PnP<T>::run()
+template <class Transport>
+inline void CKC_PnP<Transport>::CKC_mode_Config()
+{
+    if (!CKC_connectAP())
+    {
+        /* code */
+    }
+    
+};
+
+template <class Transport>
+inline void CKC_PnP<Transport>::run()
 {
     switch (WiFi_TASK)
     {
     case MODE_STA:
-        if (connectMultiWiFi())
-        {
-            WiFi_TASK = MODE_CONNECTED;
-        }
-        else
-        {
-            WiFi_TASK = MODE_AP;
-            startAP();
-        }
+        this->CKC_state_Connect_STA();
         break;
-
     case MODE_AP:
-        handleAP();
+        this->CKC_state_Connect_AP();
         break;
-
     case MODE_CONNECTED:
-        if (WiFi.status() != WL_CONNECTED)
-        {
-            WiFi_TASK = MODE_STA;
-        }
+        this->CKC_mode_connected();
+        break;
+    case MODE_AP_STA:
+        this->CKC_mode_Config();
+        break;
+    default:
         break;
     }
-
-    handleButton();
+    this->handler_button();
 }
 
 #endif

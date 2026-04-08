@@ -43,18 +43,18 @@ public:
     void init(const char *sta_ssid, const char *sta_pass);
     void CKC_state_Connect_STA();
     void CKC_state_Connect_AP();
-    void CKC_mode_connected();
-    void CKC_mode_Config();
-    bool CkC_Connected();
-    bool CKC_connectAP();
-    void handler_button();
+    void CKC_mode_WiFi_connected();
+    void CKC_CONNECTION();
+
     void run();
 
-    void SaveWiFi(String newSSID, String newPASS);
     void handleSave();
+    void SaveWiFi(String newSSID, String newPASS);
     void loadWiFi();
     bool connectMultiWiFi();
-    void setup_WiFi();
+    void setup_APWeb_WiFi();
+    void handler_button();
+    void CKC_mode_Config();
 
 private:
     IPAddress _ipAddr;
@@ -90,9 +90,8 @@ private:
 
     bool apMode = false;
 };
-//=============== WiFi Prossesing ===============//
 template <class Transport>
-inline void CKC_PnP<Transport>::handleSave()
+inline void CKC_PnP<Transport>::handleSave() // ĐƯa biến WiFi từ Web vào
 {
     String newSSID = server->arg("ssid");
     String newPASS = server->arg("pass");
@@ -101,7 +100,7 @@ inline void CKC_PnP<Transport>::handleSave()
     delay(2000);
 }
 template <class Transport>
-inline void CKC_PnP<Transport>::SaveWiFi(String newSSID, String newPASS)
+inline void CKC_PnP<Transport>::SaveWiFi(String newSSID, String newPASS) // Lưu WiFi từ Web vào ESP32
 {
     prefs.begin("wifi", false);
     for (int i = WIFI_MAX - 1; i > 0; i--)
@@ -114,7 +113,7 @@ inline void CKC_PnP<Transport>::SaveWiFi(String newSSID, String newPASS)
     prefs.end();
 }
 template <class Transport>
-inline void CKC_PnP<Transport>::loadWiFi()
+inline void CKC_PnP<Transport>::loadWiFi() // Tải WiFi từ ESP32
 {
     prefs.begin("wifi", true);
     for (int i = 0; i < WIFI_MAX; i++)
@@ -125,8 +124,9 @@ inline void CKC_PnP<Transport>::loadWiFi()
     prefs.end();
 }
 template <class Transport>
-inline bool CKC_PnP<Transport>::connectMultiWiFi()
+inline bool CKC_PnP<Transport>::connectMultiWiFi() // kết nối với WiFi được tải về từ ESP32
 {
+    loadWiFi();
     WiFi.mode(WIFI_STA);
     for (int i = 0; i < WIFI_MAX; i++)
     {
@@ -148,7 +148,7 @@ inline bool CKC_PnP<Transport>::connectMultiWiFi()
     return false;
 }
 template <class Transport>
-inline void CKC_PnP<Transport>::setup_WiFi()
+inline void CKC_PnP<Transport>::setup_APWeb_WiFi() // Cài đặt Setup Server khi esp32 vào chế độ AP
 {
     server->on("/", [this]()
                { server->send(200, "text/html", htmlPage()); });
@@ -160,7 +160,24 @@ inline void CKC_PnP<Transport>::setup_WiFi()
 }
 
 template <class Transport>
-inline void CKC_PnP<Transport>::init(const char *sta_ssid, const char *sta_pass)
+inline void CKC_PnP<Transport>::CKC_mode_WiFi_connected() // Kiểm tra các chế độ đã được kết nối
+{
+}
+template <class Transport>
+inline void CKC_PnP<Transport>::CKC_CONNECTION() // Kiểm tra WiFi có được kết nối hay chưa
+{
+    if (connectMultiWiFi())
+    {
+        WiFi_TASK = MODE_STA;
+    }
+    else
+    {
+        WiFi_TASK = MODE_AP;
+    }
+}
+
+template <class Transport>
+inline void CKC_PnP<Transport>::init(const char *sta_ssid, const char *sta_pass) // Triển khai WiFi
 {
     server = new WebServer(80);
     strcpy(_sta_ssid, sta_ssid);
@@ -180,24 +197,85 @@ inline void CKC_PnP<Transport>::init(const char *sta_ssid, const char *sta_pass)
 }
 
 template <class Transport>
-inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
+inline void CKC_PnP<Transport>::CKC_state_Connect_STA() // Setup ở chế độ STA
 {
-    loadWiFi();
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(_sta_ssid, _sta_pass);
+    CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED :)) ");
+    CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
+    CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
+    serverMQTT.begin();
+    CKC_LOG_DEBUG("TAG", "\r\n"
+                         "  ____  _  __   ____   "
+                         "\r\n"
+                         " / ___|| |/ /  / ___|  "
+                         "\r\n"
+                         "| |    | ' /  | |      "
+                         "\r\n"
+                         "| |___ | . \\  | |___   "
+                         "\r\n"
+                         " \\____||_|\\_\\  \\____|  "
+                         "\r\n");
+    // WiFi_TASK = MODE_CONNECTED;
 }
 
 template <class Transport>
-inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
+inline void CKC_PnP<Transport>::CKC_state_Connect_AP() // Setup ở chế độ AP
 {
+    CKC_LOG_DEBUG("WIFI", "WIFI_CONNECT_FALSE !!!!!! ");
+    CKC_LOG_DEBUG("WIFI", "RUN_AP");
+    CKC_LOG_DEBUG("WIFI", "AP_WIFI_NAME: %s", _ap_ssid);
+    CKC_LOG_DEBUG("WIFI", "AP_WIFI_PASS: %s", _ap_pass);
+    CKC_LOG_DEBUG("WIFI", "AP_WIFI_IP: %s", _ap_ip);
+    CKC_LOG_DEBUG("WIFI", "AP_WIFI_PORT: %s", _ap_port);
+    // WiFi_TASK = MODE_AP;
+    WiFi.mode(WIFI_OFF);
     WiFi.mode(WIFI_AP);
+    _ipAddr.fromString(_ap_ip);
     WiFi.softAP(_ap_ssid, _ap_pass);
+    t2 = millis();
 }
 
 template <class Transport>
-inline void CKC_PnP<Transport>::CKC_mode_connected()
+inline void CKC_PnP<Transport>::handler_button() // Hàm sử dụng nút nhấn
 {
+#ifdef BUTTON_MODE
+    bool pressed = (digitalRead(FLASH_BTN) == LOW); // nhấn = LOW
+
+    if (pressed)
+    {
+        if (pressStart == 0)
+            pressStart = millis();
+        // giữ đủ 5s và chỉ kích 1 lần
+        if (!triggered && (millis() - pressStart >= 5000))
+        {
+            triggered = true;
+            CKC_LOG_DEBUG("WIFI", "MODE_AP_run:");
+            CKC_LOG_DEBUG("WIFI", "WIFI_CONNECT_FALSE !!!!!! ");
+            CKC_LOG_DEBUG("WIFI", "RUN_AP");
+            CKC_LOG_DEBUG("WIFI", "AP_WIFI_NAME: %s", _ap_ssid);
+            CKC_LOG_DEBUG("WIFI", "AP_WIFI_PASS: %s", _ap_pass);
+            CKC_LOG_DEBUG("WIFI", "AP_WIFI_IP: %s", _ap_ip);
+            CKC_LOG_DEBUG("WIFI", "AP_WIFI_PORT: %s", _ap_port);
+            WiFi_TASK = MODE_AP;
+            WiFi.mode(WIFI_OFF);
+            WiFi.mode(WIFI_AP);
+            _ipAddr.fromString(_ap_ip);
+            WiFi.softAP(_ap_ssid, _ap_pass);
+            t2 = millis();
+            // TODO: đặt lệnh bạn muốn ở đây
+        }
+    }
+    else
+    {
+        pressStart = 0;
+        triggered = false;
+    }
+#endif
 }
+
+template <class Transport>
+inline void CKC_PnP<Transport>::CKC_mode_Config() {
+
+};
 
 template <class Transport>
 inline void CKC_PnP<Transport>::run()
@@ -212,9 +290,6 @@ inline void CKC_PnP<Transport>::run()
         break;
     case MODE_CONNECTED:
         this->CKC_mode_connected();
-        break;
-    case MODE_AP_STA:
-        this->CKC_mode_Config();
         break;
     default:
         break;
