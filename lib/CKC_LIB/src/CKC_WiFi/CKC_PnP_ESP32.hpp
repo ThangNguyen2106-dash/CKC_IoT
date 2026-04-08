@@ -2,8 +2,10 @@
 #define CKC_ESP32
 
 #include <Arduino.h>
-// #include <IPAddress.h>
-// #include <WiFiAP.h>
+#include <WiFi.h>
+#include <WebServer.h>
+#include "IoT_Web.h"
+#include <Preferences.h>
 #include <WiFiClient.h>
 #include <CKC/CKC_API.hpp>
 #include <MQTT/ESP32_MQTT.hpp>
@@ -13,6 +15,7 @@
 
 char STA_WIFI_NAME[32];
 char STA_WIFI_PASS[32];
+
 #define STA_WIFI_PORT "80"
 
 #define AP_WIFI_NAME "CKC:"
@@ -27,7 +30,9 @@ enum CKC_WiFI_TASK
     MODE_AP_STA,
     MODE_CONNECTED,
     WIFI_DISCONNECTED,
+    START_APCKC,
 };
+#define WIFI_MAX 5 // WiFi tối đa mà ESP32 có thể nhận
 CKC_WiFI_TASK WiFi_TASK = MODE_STA;
 template <class Transport>
 class CKC_PnP
@@ -43,6 +48,12 @@ public:
     bool CKC_connectAP();
     void handler_button();
     void run();
+
+    void SaveWiFi(String newSSID, String newPASS);
+    void handleSave();
+    void loadWiFi();
+    bool connectMultiWiFi();
+    void Start_AP_CKC();
 
 private:
     IPAddress _ipAddr;
@@ -61,7 +72,7 @@ private:
     // var local
     unsigned long _SendRssiTime;
     unsigned int count_wifiConnect;
-    unsigned long t0, t1, t2, t3, t4;
+    unsigned long t0, t1, t2, t3, t4, t5, t6, t7;
     String _ping;
     int time_sta = 20000;
     int time_ap = 30000;
@@ -69,11 +80,20 @@ private:
 
     unsigned long pressStart = 0;
     bool triggered = false;
-};
 
+    WebServer *server = nullptr;
+
+    Preferences prefs;
+    String ssid_list[WIFI_MAX];
+    String pass_list[WIFI_MAX];
+
+    bool apMode = false;
+};
+//========== INIT ==========//
 template <class Transport>
 inline void CKC_PnP<Transport>::init(const char *sta_ssid, const char *sta_pass)
 {
+    server = new WebServer(80);
     strcpy(_sta_ssid, sta_ssid);
     strcpy(_sta_pass, sta_pass);
     String MAC = WiFi.macAddress();
@@ -95,6 +115,7 @@ inline void CKC_PnP<Transport>::init(const char *sta_ssid, const char *sta_pass)
     t1 = millis();
     pinMode(FLASH_BTN, INPUT_PULLUP); // nút kéo xuống GND khi nhấn
 }
+//========== STA CONNECTION ==========//
 template <class Transport>
 inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
 {
@@ -144,6 +165,77 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
         t2 = millis();
     }
 }
+
+//========== AP CONNECTION ==========//
+// ===== SAVE WIFI ===== //
+template <class Transport>
+inline void CKC_PnP<Transport>::SaveWiFi(String newSSID, String newPASS)
+{
+    prefs.begin("wifi", false);
+    for (int i = WIFI_MAX - 1; i > 0; i--)
+    {
+        prefs.putString(("ssid" + String(i)).c_str(), ssid_list[i - 1]);
+        prefs.putString(("pass" + String(i)).c_str(), pass_list[i - 1]);
+    }
+    prefs.putString("ssid0", newSSID);
+    prefs.putString("pass0", newPASS);
+    prefs.end();
+}
+template <class Transport>
+inline void CKC_PnP<Transport>::handleSave()
+{
+    String newSSID = server->arg("ssid");
+    String newPASS = server->arg("pass");
+    SaveWiFi(newSSID, newPASS);
+    server->send(200, "text/html", "Saved! Restarting...");
+    delay(2000);
+}
+template <class Transport>
+inline void CKC_PnP<Transport>::loadWiFi()
+{
+    prefs.begin("wifi", true);
+    for (int i = 0; i < WIFI_MAX; i++)
+    {
+        ssid_list[i] = prefs.getString(("ssid" + String(i)).c_str(), "");
+        pass_list[i] = prefs.getString(("pass" + String(i)).c_str(), "");
+    }
+    prefs.end();
+}
+template <class Transport>
+inline bool CKC_PnP<Transport>::connectMultiWiFi()
+{
+    loadWiFi();
+    WiFi.mode(WIFI_STA);
+    int n = WiFi.scanNetworks();
+    if (n <= 0)
+        return false;
+    for (int j = 0; j < WIFI_MAX; j++)
+    {
+        if (ssid_list[j] == "")
+            continue;
+        for (int i = 0; i < n; i++)
+        {
+            if (WiFi.SSID(i) == ssid_list[j])
+            {
+                WiFi.begin(ssid_list[j].c_str(), pass_list[j].c_str());
+
+                unsigned long start = millis();
+
+                while (WiFi.status() != WL_CONNECTED && millis() - start < 10000)
+                {
+                    delay(300);
+                }
+
+                if (WiFi.status() == WL_CONNECTED)
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 template <class Transport>
 inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
 {
@@ -169,6 +261,28 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
         CKC_LOG_DEBUG("WIFI", "RUN_STA_AP");
     }
 }
+
+template <class Transport>
+inline void CKC_PnP<Transport>::Start_AP_CKC()
+{
+
+    WiFi_TASK = START_APCKC;
+    server->on("/", [this]()
+               { server->send(200, "text/html", htmlPage()); });
+    server->on("/save", [this]()
+               {
+        String ssid = server->arg("ssid");
+        String pass = server->arg("pass");
+
+        saveWiFi(ssid, pass);
+
+        server->send(200, "text/html", "Saved! Restart...");
+        delay(2000);
+        ESP.restart(); });
+
+    server->begin();
+}
+
 template <class Transport>
 inline void CKC_PnP<Transport>::CKC_mode_connected()
 {
@@ -184,7 +298,6 @@ inline void CKC_PnP<Transport>::CKC_mode_connected()
     if (!serverMQTT._connect())
     {
         serverMQTT.begin();
-        
     }
 }
 
@@ -204,7 +317,7 @@ inline bool CKC_PnP<Transport>::CkC_Connected()
 template <class Transport>
 inline bool CKC_PnP<Transport>::CKC_connectAP()
 {
-    if (WiFi.softAPgetStationNum() >0)
+    if (WiFi.softAPgetStationNum() > 0)
     {
         return true;
     }
@@ -262,7 +375,6 @@ inline void CKC_PnP<Transport>::CKC_mode_Config()
     {
         /* code */
     }
-    
 };
 
 template <class Transport>
