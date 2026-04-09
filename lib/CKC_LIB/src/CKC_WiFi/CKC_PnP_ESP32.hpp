@@ -270,11 +270,12 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_AP() // Setup ở chế độ 
 
         WiFi.mode(WIFI_AP);
         WiFi.softAP(_ap_ssid, _ap_pass);
-
+        _ipAddr.fromString(_ap_ip);
         setup_APWeb_WiFi();
 
         CKC_LOG_DEBUG("WIFI", "AP MODE");
         CKC_LOG_DEBUG("WIFI", "SSID: %s", _ap_ssid);
+        CKC_LOG_DEBUG("WIFI", "PASS: %s", _ap_pass);
     }
 
     server->handleClient();
@@ -343,7 +344,7 @@ inline void CKC_PnP<Transport>::run()
     default:
         break;
     }
-    this->handler_button();
+    // this->handler_button();
 }
 
 #endif

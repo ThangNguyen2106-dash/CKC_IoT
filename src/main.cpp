@@ -2,8 +2,8 @@
 // #define PLGtoken "PLG2026"
 #define CKC_DEBUG
 #define BUTTON_MODE
-const char *SSID = "Thắng Nguyễn";
-const char *PASS = "21062005";
+const char *SSID = "";
+const char *PASS = "";
 #include <CKC.h>
 
 void setup()
