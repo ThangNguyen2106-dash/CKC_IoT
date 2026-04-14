@@ -31,11 +31,11 @@ public:
     bool check_mode_sub(char *topic, char *mess);
 
 private:
-    const char *MQTT_Server = "6937adf7e70d48879245c5a2b4299e63.s1.eu.hivemq.cloud";
+    const char *MQTT_Server = "mqtt.ckc.kthd.vn"; // PORT MQTT 1883 PORT SSL 8883
     const int16_t MQTT_PORT = 8883;
     const char *MQTT_ID = "6937adf7e70d48879245c5a2b4299e63";
-    const char *MQTT_USERNAME = "hivemq.webclient.1772521107497";
-    const char *MQTT_PASS = "0eQLc1F,<bG>SX%ns34r";
+    const char *MQTT_USERNAME = "";
+    const char *MQTT_PASS = "";
     char CKC_MQTT_BASE_TOPIC[30] = CKC_BASE_TOPIC;
     char _mac[12];
 };
@@ -137,6 +137,7 @@ inline void CKC_MQTT<MQTT>::run()
     if (this->_connect())
     {
         mqttClient.loop();
+        // CKC_LOG_DEBUG("MQTT", "RUNNING MQTT");
         if (!mqttClient.connect(MQTT_ID, MQTT_USERNAME, MQTT_PASS))
         {
             Serial.println("FAILED");

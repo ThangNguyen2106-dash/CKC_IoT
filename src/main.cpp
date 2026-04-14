@@ -2,8 +2,8 @@
 // #define PLGtoken "PLG2026"
 #define CKC_DEBUG
 #define BUTTON_MODE
-const char *SSID = "";
-const char *PASS = "";
+const char *SSID = "MakerSpaceLab_2.4Ghz";
+const char *PASS = "Maker2025";
 #include <CKC.h>
 
 void setup()
