@@ -20,7 +20,7 @@ char STA_WIFI_PASS[32];
 
 #define AP_WIFI_NAME "CKC:"
 #define AP_WIFI_PASS "CKC@2026"
-#define AP_WIFI_IP "192.168.1.4"
+#define AP_WIFI_IP "192.168.6.1"
 #define AP_WIFI_PORT "80"
 
 enum CKC_WiFI_TASK
@@ -70,7 +70,7 @@ private:
     char _ap_pass[32] = AP_WIFI_PASS;
     char _ap_ip[16] = AP_WIFI_IP;
     char _ap_port[5] = AP_WIFI_PORT;
-    char _mac[12];
+    char _mac[18];
     // var local
     // unsigned long _SendRssiTime;
     // unsigned int count_wifiConnect;
@@ -87,7 +87,7 @@ private:
 #define WiFi_MAX 5
     String ssid_list[WiFi_MAX];
     String pass_list[WiFi_MAX];
-    bool apMode = false;
+    // bool apMode = false;
 };
 //========== STA MODE ==========//
 template <class Transport>
@@ -151,43 +151,68 @@ inline void CKC_PnP<Transport>::loadWiFi()
 template <class Transport>
 inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
 {
+    webServer.stop();
     loadWiFi();
     // ==============================
     //     ƯU TIÊN WIFI TỪ INIT()
     // ==============================
     if (strlen(_sta_ssid) > 0)
     {
-        // Serial.println("Priority connect: " + String(_sta_ssid));
         t1 = millis();
+        WiFi.mode(WIFI_STA);
+        WiFi.disconnect(true);
+        delay(200);
         WiFi.begin(_sta_ssid, _sta_pass);
 
-        while (WiFi.status() != WL_CONNECTED && millis() - t1 < time_sta)
+        CKC_LOG_DEBUG("WIFI", "TRY CONNECTING TO: %s", _sta_ssid);
+
+        while (WiFi.status() != WL_CONNECTED && millis() - t1 <= this->time_sta)
         {
             if (millis() - t0 > 1000)
             {
-                // Serial.println("Connecting priority WiFi...");
+                CKC_LOG_DEBUG("WIFI", "CONNECTING ___ %ds\r", (millis() - t1) / 1000);
                 t0 = millis();
             }
+            if (WiFi_TASK == MODE_AP)
+            {
+                CKC_LOG_DEBUG("WIFI", "BREAK WIFI CONNECT !!!!!! ");
+                return;
+            }
+            delay(10);
             handler_button();
         }
 
         if (WiFi.status() == WL_CONNECTED)
         {
-            // Serial.println("CONNECTED PRIORITY WIFI!");
-            Serial.println(WiFi.localIP());
             SaveWiFi(String(_sta_ssid), String(_sta_pass));
-            delay(100);
+            CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED :)) ");
+            CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
+            CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
+            serverMQTT.begin();
+            CKC_LOG_DEBUG("TAG", "\r\n"
+                                 "  ____  _  __   ____   "
+                                 "\r\n"
+                                 " / ___|| |/ /  / ___|  "
+                                 "\r\n"
+                                 "| |    | ' /  | |      "
+                                 "\r\n"
+                                 "| |___ | . \\  | |___   "
+                                 "\r\n"
+                                 " \\____||_|\\_\\  \\____|  "
+                                 "\r\n");
             WiFi_TASK = MODE_CONNECTED;
             return;
         }
     }
     WiFi.mode(WIFI_STA);
+    WiFi.disconnect(true);
+    delay(200);
     Serial.println("Scanning WiFi...");
     int n = WiFi.scanNetworks();
     if (n <= 0)
     {
         CKC_LOG_DEBUG("WIFI", "NO_WIFI_CONNECT !!!!!! ");
-        delay(100);
+        mqttClient.disconnect();
         WiFi_TASK = MODE_AP;
         return;
     }
@@ -199,7 +224,7 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
         {
             if (WiFi.SSID(i) == ssid_list[j])
             {
-                CKC_LOG_DEBUG("WIFI", "Connecting to: ", ssid_list[j]);
+                CKC_LOG_DEBUG("WIFI", "Connecting to: %s", ssid_list[j].c_str());
                 t1 = millis();
                 WiFi.begin(ssid_list[j].c_str(), pass_list[j].c_str());
                 while (WiFi.status() != WL_CONNECTED && millis() - t1 <= this->time_sta)
@@ -209,6 +234,12 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
                         CKC_LOG_DEBUG("WIFI", "CONNECTING ___ %ds\r", (millis() - t1) / 1000);
                         t0 = millis();
                     }
+                    if (WiFi_TASK == MODE_AP)
+                    {
+                        CKC_LOG_DEBUG("WIFI", "BREAK WIFI CONNECT !!!!!! ");
+                        return;
+                    }
+                    delay(10);
                     handler_button();
                 }
                 if (WiFi.status() == WL_CONNECTED)
@@ -240,8 +271,9 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
         }
     }
     CKC_LOG_DEBUG("WIFI", "NO_WIFI_CONNECT !!!!!! ");
-    delay(100);
+    mqttClient.disconnect();
     WiFi_TASK = MODE_AP;
+    delay(100);
 }
 //========== AP MODE ==========//
 template <class Transport>
@@ -252,10 +284,13 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
     CKC_LOG_DEBUG("WIFI", "AP_WIFI_PASS: %s", _ap_pass);
     CKC_LOG_DEBUG("WIFI", "AP_WIFI_IP: %s", _ap_ip);
     CKC_LOG_DEBUG("WIFI", "AP_WIFI_PORT: %s", _ap_port);
-    apMode = true;
+    WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
+    delay(100);
     WiFi.mode(WIFI_AP);
-    _ipAddr.fromString(_ap_ip);
+    IPAddress local_ip;
+    local_ip.fromString(_ap_ip);
+    WiFi.softAPConfig(local_ip, local_ip, WIFI_AP_Subnet);
     WiFi.softAP(_ap_ssid, _ap_pass);
     webServer.on("/", [this]()
                  { this->webServer.send(200, "text/html", htmlPage()); });
@@ -263,7 +298,8 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
     webServer.on("/save", [this]()
                  { this->handleSave(); });
     webServer.begin();
-    delay(100);
+    mqttClient.disconnect();
+    delay(1000);
     WiFi_TASK = RUN_AP_WEB;
 }
 //========== CONNECTED MODE ==========//
@@ -283,19 +319,24 @@ inline bool CKC_PnP<Transport>::CkC_Connected()
 template <class Transport>
 inline void CKC_PnP<Transport>::CKC_mode_connected()
 {
-    serverMQTT.run();
-    
     if (!CkC_Connected())
     {
+        mqttClient.disconnect();
         WiFi_TASK = MODE_STA;
-        CKC_LOG_DEBUG("WIFI", "RUN_STA");
-        CKC_LOG_DEBUG("WIFI", "STA_WIFI_NAME: %s", _sta_ssid);
-        CKC_LOG_DEBUG("WIFI", "STA_WIFI_PASS: %s", _sta_pass);
-        t1 = millis();
+        return;
     }
-    if (!serverMQTT._connect())
+    if (WiFi.status() == WL_CONNECTED)
     {
-        serverMQTT.begin();
+        serverMQTT.run();
+        if (!serverMQTT._connect())
+        {
+            unsigned long lastMQTTReconnect = 0;
+            if (millis() - lastMQTTReconnect > 5000)
+            {
+                lastMQTTReconnect = millis();
+                serverMQTT.begin();
+            }
+        }
     }
 }
 
@@ -304,38 +345,27 @@ template <class Transport>
 inline void CKC_PnP<Transport>::handler_button()
 {
 #ifdef BUTTON_MODE
-    bool pressed = (digitalRead(FLASH_BTN) == LOW); // nhấn = LOW
-
+    bool pressed = (digitalRead(FLASH_BTN) == LOW);
     if (pressed)
     {
         if (pressStart == 0)
             pressStart = millis();
-        // giữ đủ 5s và chỉ kích 1 lần
+
         if (!triggered && (millis() - pressStart >= 5000))
         {
             triggered = true;
-            CKC_LOG_DEBUG("WIFI", "MODE_AP_run:");
-            CKC_LOG_DEBUG("WIFI", "WIFI_CONNECT_FALSE !!!!!! ");
-            CKC_LOG_DEBUG("WIFI", "RUN_AP");
-            CKC_LOG_DEBUG("WIFI", "AP_WIFI_NAME: %s", _ap_ssid);
-            CKC_LOG_DEBUG("WIFI", "AP_WIFI_PASS: %s", _ap_pass);
-            CKC_LOG_DEBUG("WIFI", "AP_WIFI_IP: %s", _ap_ip);
-            CKC_LOG_DEBUG("WIFI", "AP_WIFI_PORT: %s", _ap_port);
+            mqttClient.disconnect();
             WiFi_TASK = MODE_AP;
-            WiFi.mode(WIFI_OFF);
-            WiFi.mode(WIFI_AP);
-            _ipAddr.fromString(_ap_ip);
-            WiFi.softAP(_ap_ssid, _ap_pass);
-            t2 = millis();
-            // TODO: đặt lệnh bạn muốn ở đây
+            CKC_LOG_DEBUG("WIFI", "BUTTON TRIGGER");
         }
     }
     else
     {
-
-        // nhả nút thì reset lại
-        pressStart = 0;
-        triggered = false;
+        if (triggered)
+        {
+            pressStart = 0;
+            triggered = false;
+        }
     }
 
 #endif
@@ -357,6 +387,7 @@ inline void CKC_PnP<Transport>::run()
         this->CKC_mode_connected();
         break;
     case RUN_AP_WEB:
+        mqttClient.disconnect();
         this->webServer.handleClient();
         break;
     default:
