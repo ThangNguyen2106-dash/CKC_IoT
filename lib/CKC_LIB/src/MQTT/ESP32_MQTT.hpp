@@ -32,7 +32,7 @@ public:
     bool check_mode_sub(char *topic, char *mess);
 
 private:
-    const char *MQTT_Server = "mqtt.vn"; // PORT MQTT 1883 PORT SSL 8883 mqtt.ckc.kthd.vn
+    const char *MQTT_Server = "mqtt.ckc.kthd.vn"; // PORT MQTT 1883 PORT SSL 8883 mqtt.ckc.kthd.vn
     const int16_t MQTT_PORT = 8883;
     const char *MQTT_ID = "6937adf7e70d48879245c5a2b4299e63";
     const char *MQTT_USERNAME = "";
