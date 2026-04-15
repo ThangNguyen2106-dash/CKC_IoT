@@ -330,9 +330,10 @@ inline void CKC_PnP<Transport>::CKC_mode_connected()
         serverMQTT.run();
         if (!serverMQTT._connect())
         {
-            unsigned long lastMQTTReconnect = 0;
+            static unsigned long lastMQTTReconnect = 0;
             if (millis() - lastMQTTReconnect > 5000)
             {
+                CKC_LOG_DEBUG("MQTT", "RECONNECTING__________");
                 lastMQTTReconnect = millis();
                 serverMQTT.begin();
             }

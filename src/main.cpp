@@ -25,4 +25,3 @@ void loop()
     serverMQTT.sendData("Topic", DATA_);
   }
 }
-
