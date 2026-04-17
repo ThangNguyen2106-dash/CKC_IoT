@@ -6,8 +6,6 @@
 #include <WiFiClient.h>
 #include <CKC/CKC_API.hpp>
 #include <MQTT/ESP32_MQTT.hpp>
-
-#include "IoT_Web.h"
 #include <WebServer.h>
 #include <Preferences.h>
 
@@ -47,12 +45,15 @@ public:
     void handleSave();
     void loadWiFi();
 
+    void handleScan();
+
     void CKC_state_Connect_STA();
     void CKC_state_Connect_AP();
 
     void CKC_mode_connected();
     bool CkC_Connected();
     void run();
+    String htmlPage();
 
     void handler_button();
 
@@ -87,6 +88,8 @@ private:
 #define WiFi_MAX 5
     String ssid_list[WiFi_MAX];
     String pass_list[WiFi_MAX];
+
+    int RSSI_list[WiFi_MAX];
     // bool apMode = false;
 };
 //========== STA MODE ==========//
@@ -124,16 +127,15 @@ inline void CKC_PnP<Transport>::SaveWiFi(String newSSID, String newPASS)
 template <class Transport>
 inline void CKC_PnP<Transport>::handleSave()
 {
-    String newSSID = webServer.arg("ssid");
-    String newPASS = webServer.arg("pass");
-    SaveWiFi(newSSID, newPASS);
+    newSSID = webServer.arg("ssid");
+    newPASS = webServer.arg("pass");
 
     strcpy(_sta_ssid, newSSID.c_str());
     strcpy(_sta_pass, newPASS.c_str());
 
-    webServer.send(200, "text/html", "Saved! Restarting...");
-    delay(1000);
-    WiFi_TASK = MODE_STA;
+    webServer.send(200, "text/html", "<h3>WIFI CONNECTING...!!!</h3>");
+
+    WiFi_TASK = MODE_STA; // chuyển sang STA để test connect
 }
 
 template <class Transport>
@@ -149,10 +151,241 @@ inline void CKC_PnP<Transport>::loadWiFi()
 }
 
 template <class Transport>
+inline void CKC_PnP<Transport>::handleScan()
+{
+    CKC_LOG_DEBUG("WIFI", "WiFi SCANNING !!!!!!");
+    int n = WiFi.scanNetworks();
+    if (n <= 0)
+    {
+        CKC_LOG_DEBUG("WIFI", "NO WIFI FOUND");
+        return;
+    }
+    CKC_LOG_DEBUG("WIFI", "Found %d networks", n);
+    int count = min(n, WiFi_MAX);
+    for (int i = 0; i < count; i++)
+    {
+        ssid_list[i] = WiFi.SSID(i);
+        RSSI_list[i] = WiFi.RSSI(i);
+
+        CKC_LOG_DEBUG("WIFI", "WiFi %d", i);
+        CKC_LOG_DEBUG("WIFI", "SSID: %s", ssid_list[i].c_str());
+        CKC_LOG_DEBUG("WIFI", "RSSI: %d dBm", WiFi.RSSI(i));
+    }
+    for (int i = count; i < WiFi_MAX; i++)
+    {
+        ssid_list[i] = "";
+    }
+    WiFi.scanDelete();
+    // WiFi.disconnect(true);
+    // WiFi.mode(WIFI_OFF);
+}
+
+template <class Transport>
+inline String CKC_PnP<Transport>::htmlPage()
+{
+    String options = "";
+
+    for (int i = 0; i < WiFi_MAX; i++)
+    {
+        if (ssid_list[i] != "")
+        {
+            int rssi = RSSI_list[i];
+            int level = 1;
+
+            if (rssi > -60)
+                level = 4;
+            else if (rssi > -70)
+                level = 3;
+            else if (rssi > -80)
+                level = 2;
+            else
+                level = 1;
+
+            options += "<option value='" + ssid_list[i] + "' data-level='" + String(level) + "'>";
+            options += ssid_list[i] + " (" + String(rssi) + " dBm)";
+            options += "</option>";
+        }
+    }
+
+    String page = R"rawliteral(
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>WiFi CONFIG</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+:root {
+    --primary: #4CAF93;
+    --bg: #f5f7f9;
+    --card: #ffffff;
+    --text: #2c3e50;
+    --border: #e0e6ed;
+}
+
+body {
+    font-family: "Segoe UI", sans-serif;
+    background: var(--bg);
+    margin: 0;
+    padding: 20px;
+    color: var(--text);
+}
+
+.container {
+    max-width: 400px;
+    margin: auto;
+}
+
+.card {
+    background: var(--card);
+    padding: 25px;
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+}
+
+h2 {
+    margin-bottom: 20px;
+}
+
+select, input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    margin-top: 8px;
+}
+
+button, input[type="submit"] {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: var(--primary);
+    color: white;
+    margin-top: 15px;
+    cursor: pointer;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 25px 0;
+}
+
+/* SIGNAL */
+.select-wrap {
+    position: relative;
+}
+
+#signalView {
+    position: absolute;
+    right: 35px; 
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.signal {
+    display: flex;
+    gap: 3px;
+     align-items: flex-end;
+}
+
+.bar {
+    width: 5px;
+    border-radius: 3px;
+    background: #d0d7de;
+}
+
+.bar.active {
+    background: var(--primary);
+}
+
+.bar:nth-child(1) { height: 6px; }
+.bar:nth-child(2) { height: 10px; }
+.bar:nth-child(3) { height: 14px; }
+.bar:nth-child(4) { height: 18px; }
+
+.level-1 .bar:nth-child(n+2),
+.level-2 .bar:nth-child(n+3),
+.level-3 .bar:nth-child(4) {
+    background: #d0d7de !important;
+}
+</style>
+
+</head>
+<body>
+
+<div class="container">
+<div class="card">
+
+<h2>WIFI CONNECTING SITE</h2>
+
+<form action="/connect" method="POST">
+<label>SSID</label>
+<div class="select-wrap">
+    <select id="wifiSelect" name="ssid">
+)rawliteral";
+
+    page += options;
+
+    page += R"rawliteral(
+    </select>
+    <div id="signalView"></div>
+</div>
+
+<label>Password</label>
+<input type="password" name="pass">
+
+<input type="submit" value="CONNECT">
+</form>
+
+<hr>
+
+<form action="/scan" method="GET">
+<button type="submit">RELOAD WIFI</button>
+</form>
+
+</div>
+</div>
+
+<script>
+const select = document.getElementById("wifiSelect");
+const signalView = document.getElementById("signalView");
+
+function renderSignal(level) {
+    let html = '<div class="signal level-' + level + '">';
+    for (let i = 0; i < 4; i++) {
+        html += '<span class="bar active"></span>';
+    }
+    html += '</div>';
+    signalView.innerHTML = html;
+}
+
+select.addEventListener("change", function() {
+    let level = this.options[this.selectedIndex].getAttribute("data-level");
+    renderSignal(level);
+});
+
+window.onload = function() {
+    let level = select.options[select.selectedIndex].getAttribute("data-level");
+    renderSignal(level);
+};
+</script>
+
+</body>
+</html>
+)rawliteral";
+
+    return page;
+}
+// Tối ưu hàm
+template <class Transport>
 inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
 {
     webServer.stop();
-    loadWiFi();
+    this->loadWiFi();
     // ==============================
     //     ƯU TIÊN WIFI TỪ INIT()
     // ==============================
@@ -187,6 +420,7 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
             SaveWiFi(String(_sta_ssid), String(_sta_pass));
             CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED :)) ");
             CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
+            CKC_LOG_DEBUG("WIFI", "WIFI MAC ADDRESS: %s", WiFi.macAddress().c_str());
             CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
             serverMQTT.begin();
             CKC_LOG_DEBUG("TAG", "\r\n"
@@ -204,10 +438,11 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
             return;
         }
     }
+
     WiFi.mode(WIFI_STA);
     WiFi.disconnect(true);
     delay(200);
-    Serial.println("Scanning WiFi...");
+    CKC_LOG_DEBUG("WIFI", "LOAD WIFI FORM ESP32 !!!!!! ");
     int n = WiFi.scanNetworks();
     if (n <= 0)
     {
@@ -244,6 +479,7 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
                 }
                 if (WiFi.status() == WL_CONNECTED)
                 {
+                    SaveWiFi(String(_sta_ssid), String(_sta_pass));
                     CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED :)) ");
                     CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
                     CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
@@ -279,24 +515,27 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
 template <class Transport>
 inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
 {
+    WiFi.mode(WIFI_AP_STA);
+    this->handleScan();
+    delay(100);
     CKC_LOG_DEBUG("WIFI", "RUN_AP");
     CKC_LOG_DEBUG("WIFI", "AP_WIFI_NAME: %s", _ap_ssid);
     CKC_LOG_DEBUG("WIFI", "AP_WIFI_PASS: %s", _ap_pass);
     CKC_LOG_DEBUG("WIFI", "AP_WIFI_IP: %s", _ap_ip);
     CKC_LOG_DEBUG("WIFI", "AP_WIFI_PORT: %s", _ap_port);
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_OFF);
-    delay(100);
-    WiFi.mode(WIFI_AP);
     IPAddress local_ip;
     local_ip.fromString(_ap_ip);
     WiFi.softAPConfig(local_ip, local_ip, WIFI_AP_Subnet);
     WiFi.softAP(_ap_ssid, _ap_pass);
     webServer.on("/", [this]()
-                 { this->webServer.send(200, "text/html", htmlPage()); });
+                 { this->webServer.send(200, "text/html", this->htmlPage()); });
 
-    webServer.on("/save", [this]()
+    webServer.on("/connect", HTTP_POST, [this]()
                  { this->handleSave(); });
+    webServer.on("/scan", [this]()
+                 {
+    this->handleScan();
+    this->webServer.send(200, "text/html", this->htmlPage()); });
     webServer.begin();
     mqttClient.disconnect();
     delay(1000);
@@ -313,6 +552,7 @@ inline bool CKC_PnP<Transport>::CkC_Connected()
     }
     else
     {
+
         return false;
     }
 }
@@ -321,11 +561,12 @@ inline void CKC_PnP<Transport>::CKC_mode_connected()
 {
     if (!CkC_Connected())
     {
+        CKC_LOG_DEBUG("WIFI", "LOST WIFI !!!!!");
         mqttClient.disconnect();
         WiFi_TASK = MODE_STA;
         return;
     }
-    if (WiFi.status() == WL_CONNECTED)
+    if (CkC_Connected())
     {
         serverMQTT.run();
         if (!serverMQTT._connect())
@@ -351,7 +592,6 @@ inline void CKC_PnP<Transport>::handler_button()
     {
         if (pressStart == 0)
             pressStart = millis();
-
         if (!triggered && (millis() - pressStart >= 5000))
         {
             triggered = true;
