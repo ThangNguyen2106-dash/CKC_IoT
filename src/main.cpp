@@ -48,6 +48,7 @@ void loop()
   if (millis() - PLGTimer > 1000)
   {
     float temp = doccambien();
+
   }
 }
 

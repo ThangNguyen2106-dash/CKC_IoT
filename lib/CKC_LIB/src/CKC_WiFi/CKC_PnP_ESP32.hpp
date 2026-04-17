@@ -9,7 +9,6 @@
 #include <WebServer.h>
 #include <Preferences.h>
 
-#define WIFI_AP_IP IPAddress(192, 168, 27, 1)
 #define WIFI_AP_Subnet IPAddress(255, 255, 255, 0)
 
 char STA_WIFI_NAME[32];
@@ -77,7 +76,7 @@ private:
     // unsigned int count_wifiConnect;
     unsigned long t0, t1, t2, t3, t4;
     // String _ping;
-    int time_sta = 20000;
+    int time_sta = 10000;
 #define FLASH_BTN 0 // nút BOOT/FLASH trên ESP32 thường là GPIO0
 
     unsigned long pressStart = 0;
@@ -246,6 +245,8 @@ body {
 
 h2 {
     margin-bottom: 20px;
+    text-align: center
+
 }
 
 select, input {
