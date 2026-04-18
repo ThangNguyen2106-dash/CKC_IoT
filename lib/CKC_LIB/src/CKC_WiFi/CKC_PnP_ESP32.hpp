@@ -47,6 +47,7 @@ public:
     void handleScan();
 
     void CKC_state_Connect_STA();
+    void STA();
     void CKC_state_Connect_AP();
 
     void CKC_mode_connected();
@@ -82,16 +83,15 @@ private:
     unsigned long pressStart = 0;
     bool triggered = false;
 
-    String newSSID;
-    String newPASS;
-#define WiFi_MAX 5
-    String ssid_list[WiFi_MAX];
-    String pass_list[WiFi_MAX];
+#define WiFi_MAX_LIST 5
+    char ssid_list[WiFi_MAX_LIST][33];
+    char pass_list[WiFi_MAX_LIST][65];
 
-    int RSSI_list[WiFi_MAX];
-    // bool apMode = false;
+    char newSSID[33];
+    char newPASS[65];
+    int RSSI_list[WiFi_MAX_LIST];
 };
-//========== STA MODE ==========//
+
 template <class Transport>
 inline void CKC_PnP<Transport>::init(const char *sta_ssid, const char *sta_pass)
 {
@@ -113,7 +113,7 @@ template <class Transport>
 inline void CKC_PnP<Transport>::SaveWiFi(String newSSID, String newPASS)
 {
     prefs.begin("wifi", false);
-    for (int i = WiFi_MAX - 1; i > 0; i--)
+    for (int i = WiFi_MAX_LIST - 1; i > 0; i--)
     {
         prefs.putString(("ssid" + String(i)).c_str(), ssid_list[i - 1]);
         prefs.putString(("pass" + String(i)).c_str(), pass_list[i - 1]);
@@ -126,11 +126,11 @@ inline void CKC_PnP<Transport>::SaveWiFi(String newSSID, String newPASS)
 template <class Transport>
 inline void CKC_PnP<Transport>::handleSave()
 {
-    newSSID = webServer.arg("ssid");
-    newPASS = webServer.arg("pass");
+    strncpy(newSSID, webServer.arg("ssid").c_str(), sizeof(newSSID));
+    strncpy(newPASS, webServer.arg("pass").c_str(), sizeof(newPASS));
 
-    strcpy(_sta_ssid, newSSID.c_str());
-    strcpy(_sta_pass, newPASS.c_str());
+    strcpy(_sta_ssid, newSSID);
+    strcpy(_sta_pass, newPASS);
 
     webServer.send(200, "text/html", "<h3>WIFI CONNECTING...!!!</h3>");
 
@@ -141,10 +141,10 @@ template <class Transport>
 inline void CKC_PnP<Transport>::loadWiFi()
 {
     prefs.begin("wifi", true);
-    for (int i = 0; i < WiFi_MAX; i++)
+    for (int i = 0; i < WiFi_MAX_LIST; i++)
     {
-        ssid_list[i] = prefs.getString(("ssid" + String(i)).c_str(), "");
-        pass_list[i] = prefs.getString(("pass" + String(i)).c_str(), "");
+        prefs.getString(("ssid" + String(i)).c_str(), ssid_list[i], 33);
+        prefs.getString(("pass" + String(i)).c_str(), pass_list[i], 65);
     }
     prefs.end();
 }
@@ -160,23 +160,21 @@ inline void CKC_PnP<Transport>::handleScan()
         return;
     }
     CKC_LOG_DEBUG("WIFI", "Found %d networks", n);
-    int count = min(n, WiFi_MAX);
+    int count = min(n, WiFi_MAX_LIST);
     for (int i = 0; i < count; i++)
     {
-        ssid_list[i] = WiFi.SSID(i);
+        snprintf(ssid_list[i], sizeof(ssid_list[i]), "%s", WiFi.SSID(i).c_str());
         RSSI_list[i] = WiFi.RSSI(i);
 
         CKC_LOG_DEBUG("WIFI", "WiFi %d", i);
-        CKC_LOG_DEBUG("WIFI", "SSID: %s", ssid_list[i].c_str());
+        CKC_LOG_DEBUG("WIFI", "SSID: %s", ssid_list[i]);
         CKC_LOG_DEBUG("WIFI", "RSSI: %d dBm", WiFi.RSSI(i));
     }
-    for (int i = count; i < WiFi_MAX; i++)
+    for (int i = count; i < WiFi_MAX_LIST; i++)
     {
-        ssid_list[i] = "";
+        ssid_list[i][0] = '\0';
     }
     WiFi.scanDelete();
-    // WiFi.disconnect(true);
-    // WiFi.mode(WIFI_OFF);
 }
 
 template <class Transport>
@@ -184,7 +182,7 @@ inline String CKC_PnP<Transport>::htmlPage()
 {
     String options = "";
 
-    for (int i = 0; i < WiFi_MAX; i++)
+    for (int i = 0; i < WiFi_MAX_LIST; i++)
     {
         if (ssid_list[i] != "")
         {
@@ -199,13 +197,13 @@ inline String CKC_PnP<Transport>::htmlPage()
                 level = 2;
             else
                 level = 1;
-
-            options += "<option value='" + ssid_list[i] + "' data-level='" + String(level) + "'>";
-            options += ssid_list[i] + " (" + String(rssi) + " dBm)";
-            options += "</option>";
+            char buffer[128];
+            snprintf(buffer, sizeof(buffer),
+                     "<option value='%s' data-level='%d'>%s (%d dBm)</option>",
+                     ssid_list[i], level, ssid_list[i], rssi);
+            options += buffer;
         }
     }
-
     String page = R"rawliteral(
 <!DOCTYPE html>
 <html lang="vi">
@@ -378,10 +376,10 @@ window.onload = function() {
 </body>
 </html>
 )rawliteral";
-
     return page;
 }
-// Tối ưu hàm
+
+//========== STA MODE ==========//
 template <class Transport>
 inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
 {
@@ -418,24 +416,7 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
 
         if (WiFi.status() == WL_CONNECTED)
         {
-            SaveWiFi(String(_sta_ssid), String(_sta_pass));
-            CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED :)) ");
-            CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
-            CKC_LOG_DEBUG("WIFI", "WIFI MAC ADDRESS: %s", WiFi.macAddress().c_str());
-            CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
-            serverMQTT.begin();
-            CKC_LOG_DEBUG("TAG", "\r\n"
-                                 "  ____  _  __   ____   "
-                                 "\r\n"
-                                 " / ___|| |/ /  / ___|  "
-                                 "\r\n"
-                                 "| |    | ' /  | |      "
-                                 "\r\n"
-                                 "| |___ | . \\  | |___   "
-                                 "\r\n"
-                                 " \\____||_|\\_\\  \\____|  "
-                                 "\r\n");
-            WiFi_TASK = MODE_CONNECTED;
+            this->STA();
             return;
         }
     }
@@ -452,7 +433,7 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
         WiFi_TASK = MODE_AP;
         return;
     }
-    for (int j = 0; j < WiFi_MAX; j++)
+    for (int j = 0; j < WiFi_MAX_LIST; j++)
     {
         if (ssid_list[j] == "")
             continue;
@@ -460,9 +441,9 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
         {
             if (WiFi.SSID(i) == ssid_list[j])
             {
-                CKC_LOG_DEBUG("WIFI", "Connecting to: %s", ssid_list[j].c_str());
+                CKC_LOG_DEBUG("WIFI", "Connecting to: %s", ssid_list[j]);
                 t1 = millis();
-                WiFi.begin(ssid_list[j].c_str(), pass_list[j].c_str());
+                WiFi.begin(ssid_list[j], pass_list[j]);
                 while (WiFi.status() != WL_CONNECTED && millis() - t1 <= this->time_sta)
                 {
                     if (millis() - t0 > 1000)
@@ -480,23 +461,7 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
                 }
                 if (WiFi.status() == WL_CONNECTED)
                 {
-                    SaveWiFi(String(_sta_ssid), String(_sta_pass));
-                    CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED :)) ");
-                    CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
-                    CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
-                    serverMQTT.begin();
-                    CKC_LOG_DEBUG("TAG", "\r\n"
-                                         "  ____  _  __   ____   "
-                                         "\r\n"
-                                         " / ___|| |/ /  / ___|  "
-                                         "\r\n"
-                                         "| |    | ' /  | |      "
-                                         "\r\n"
-                                         "| |___ | . \\  | |___   "
-                                         "\r\n"
-                                         " \\____||_|\\_\\  \\____|  "
-                                         "\r\n");
-                    WiFi_TASK = MODE_CONNECTED;
+                    this->STA();
                     return;
                 }
                 else
@@ -512,6 +477,29 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
     WiFi_TASK = MODE_AP;
     delay(100);
 }
+
+template <class Transport>
+inline void CKC_PnP<Transport>::STA()
+{
+    SaveWiFi(String(_sta_ssid), String(_sta_pass));
+    CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED :)) ");
+    CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
+    CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
+    serverMQTT.begin();
+    CKC_LOG_DEBUG("TAG", "\r\n"
+                         "  ____  _  __   ____   "
+                         "\r\n"
+                         " / ___|| |/ /  / ___|  "
+                         "\r\n"
+                         "| |    | ' /  | |      "
+                         "\r\n"
+                         "| |___ | . \\  | |___   "
+                         "\r\n"
+                         " \\____||_|\\_\\  \\____|  "
+                         "\r\n");
+    WiFi_TASK = MODE_CONNECTED;
+}
+
 //========== AP MODE ==========//
 template <class Transport>
 inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
@@ -542,8 +530,8 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
     delay(1000);
     WiFi_TASK = RUN_AP_WEB;
 }
-//========== CONNECTED MODE ==========//
 
+//========== CONNECTED MODE ==========//
 template <class Transport>
 inline bool CKC_PnP<Transport>::CkC_Connected()
 {
@@ -557,6 +545,7 @@ inline bool CKC_PnP<Transport>::CkC_Connected()
         return false;
     }
 }
+
 template <class Transport>
 inline void CKC_PnP<Transport>::CKC_mode_connected()
 {

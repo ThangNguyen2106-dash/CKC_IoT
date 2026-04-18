@@ -39,7 +39,7 @@ float doccambien()
 void setup()
 {
   Serial.begin(115200);
-  CKC.init(SSID, PASS);
+  CKC.begin(SSID, PASS);
 }
 void loop()
 {
@@ -48,7 +48,7 @@ void loop()
   if (millis() - PLGTimer > 1000)
   {
     float temp = doccambien();
-
+    // CKC.WriteTelemetry();
   }
 }
 

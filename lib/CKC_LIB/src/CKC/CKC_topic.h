@@ -3,7 +3,7 @@
 
 /*
 Topic format:
-    eoh/chip/<token>/<prefix topic>
+   device/mac/<PREFIX topic>
 */
 #define CKC_BASE_TOPIC "device/"
 
