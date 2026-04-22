@@ -135,11 +135,11 @@ inline void CKC_PnP<Transport>::loadWiFi()
 template <class Transport>
 inline void CKC_PnP<Transport>::handleScan()
 {
-    CKC_LOG_DEBUG("WIFI", "WiFi SCANNING !!!!!!");
+    // CKC_LOG_DEBUG("WIFI", "WiFi SCANNING !!!!!!");
     int n = WiFi.scanNetworks();
     if (n <= 0)
     {
-        CKC_LOG_DEBUG("WIFI", "NO WIFI FOUND");
+        // CKC_LOG_DEBUG("WIFI", "NO WIFI FOUND");
         return;
     }
     CKC_LOG_DEBUG("WIFI", "Found %d networks", n);
@@ -148,9 +148,9 @@ inline void CKC_PnP<Transport>::handleScan()
     {
         ssid_list[i] = WiFi.SSID(i);
         RSSI_list[i] = WiFi.RSSI(i);
-        CKC_LOG_DEBUG("WIFI", "WiFi %d", i);
-        CKC_LOG_DEBUG("WIFI", "SSID: %s", ssid_list[i].c_str());
-        CKC_LOG_DEBUG("WIFI", "RSSI: %d dBm", WiFi.RSSI(i));
+        // CKC_LOG_DEBUG("WIFI", "WiFi %d", i);
+        // CKC_LOG_DEBUG("WIFI", "SSID: %s", ssid_list[i].c_str());
+        // CKC_LOG_DEBUG("WIFI", "RSSI: %d dBm", WiFi.RSSI(i));
     }
     for (int i = count; i < WiFi_MAX; i++)
     {
@@ -425,9 +425,10 @@ template <class Transport>
 inline void CKC_PnP<Transport>::STA()
 {
     SaveWiFi(String(_sta_ssid), String(_sta_pass));
-    CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED :)) ");
+    CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED!!!");
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
+    CKC_LOG_DEBUG("WIFI", "STA_WIFI_MAC: %s", _mac);
     serverMQTT.begin();
     CKC_LOG_DEBUG("TAG", "\r\n"
                          " ____ _ __ ____ "
@@ -531,11 +532,8 @@ inline void CKC_PnP<Transport>::handler_button()
     }
     else
     {
-        if (triggered)
-        {
-            pressStart = 0;
-            triggered = false;
-        }
+        pressStart = 0;
+        triggered = false;
     }
 #endif
 }
