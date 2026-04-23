@@ -3,19 +3,23 @@
 
 /*
 Topic format:
-   device/mac/<PREFIX topic>
+    device/mac/<prefix topic>
 */
 #define CKC_BASE_TOPIC "device/"
 
 /* Subscribe topic */
-#define CKC_SUB_PREFIX_TELEMETRY_TOPIC "/telemetry"
-#define CKC_SUB_PREFIX_ARDUINO_TOPIC "/arduino_pin/"
-#define CKC_SUB_PREFIX_VIRTUAL_TOPIC "/virtual_pin/"
-#define CKC_SUB_PREFIX_ASK_WIFI_TOPIC "/wifi/ask"
-#define CKC_SUB_PREFIX_CHANGE_WIFI_TOPIC "/wifi/change"
+#define CKC_SUB_PREFIX_TELEMETRY_TOPIC               "/telemetry"
+#define CKC_SUB_PREFIX_CONTROL_TOPIC                 "/control"
+#define CKC_SUB_PREFIX_ARDUINO_TOPIC                 "/arduino_pin/"
+#define CKC_SUB_PREFIX_VIRTUAL_TOPIC                 "/virtual_pin/"
+#define CKC_SUB_PREFIX_ASK_WIFI_TOPIC                "/wifi/ask"
+#define CKC_SUB_PREFIX_CHANGE_WIFI_TOPIC             "/wifi/change"
 
 /* Publish topic */
-#define CKC_PUB_PREFIX_INFO_TOPIC "telemetry"
-#define CKC_PUB_PREFIX_MODBUS_DATA_TOPIC "/data/"
+#define CKC_PUB_PREFIX_TELEMETRY_TOPIC               "telemetry"
+#define CKC_PUB_PREFIX_CONTROL_TOPIC                 "control"
+#define CKC_PUB_PREFIX_MODBUS_DATA_TOPIC             "/data/"
+
+
 
 #endif // INC_CKC_TOPIC

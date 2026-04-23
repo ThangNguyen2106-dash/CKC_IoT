@@ -8,6 +8,7 @@ class CKC_Protocall
 {
 private:
     CKC_PnP<CKC_MQTT<PubSubClient>> CKC_PNP;
+    CKC_MQTT<PubSubClient> serverMQTT;
     CkC_APi API_MESS;
     cJSON *tele_root = NULL;
     cJSON *dataObj = NULL;
@@ -56,7 +57,7 @@ void CKC_Protocall::WriteControl(const char *key, const CKCParam value)
 }
 void CKC_Protocall::WriteTelemetry(const char *key, const CKCParam value)
 {
-    if (this->CKC_PNP.CkC_Connected())
+    if ((this->CKC_PNP.CkC_Connected()) && (this->serverMQTT._connect()))
     {
         const char *data = this->API_MESS.WriteTelemetry(key, value);
         serverMQTT.CKC_publishData(data);
@@ -64,54 +65,51 @@ void CKC_Protocall::WriteTelemetry(const char *key, const CKCParam value)
 }
 void CKC_Protocall::set_Telemetry(const char *first, ...)
 {
-    if (this->CKC_PNP.CkC_Connected())
+    //  CHỈ tạo 1 lần (tránh fragment heap)
+    if (tele_root == NULL)
     {
+        tele_root = cJSON_CreateObject();
+        dataObj = cJSON_CreateObject();
 
-        //  CHỈ tạo 1 lần (tránh fragment heap)
-        if (tele_root == NULL)
-        {
-            tele_root = cJSON_CreateObject();
-            dataObj = cJSON_CreateObject();
+        // mac không đổi → set 1 lần
+        char macStr[18];
+        WiFi.macAddress().toCharArray(macStr, sizeof(macStr));
 
-            // mac không đổi → set 1 lần
-            char macStr[18];
-            WiFi.macAddress().toCharArray(macStr, sizeof(macStr));
+        cJSON_AddStringToObject(tele_root, "mac_address", macStr);
+        cJSON_AddItemToObject(tele_root, "data", dataObj);
+    }
+    else
+    {
+        //  nếu đã có thì chỉ clear data (không delete root)
+        cJSON_DeleteItemFromObject(tele_root, "data");
+        dataObj = cJSON_CreateObject();
+        cJSON_AddItemToObject(tele_root, "data", dataObj);
+    }
 
-            cJSON_AddStringToObject(tele_root, "mac_address", macStr);
-            cJSON_AddItemToObject(tele_root, "data", dataObj);
-        }
-        else
-        {
-            //  nếu đã có thì chỉ clear data (không delete root)
-            cJSON_DeleteItemFromObject(tele_root, "data");
-            dataObj = cJSON_CreateObject();
-            cJSON_AddItemToObject(tele_root, "data", dataObj);
-        }
+    //  thêm key
+    va_list args;
+    va_start(args, first);
 
-        //  thêm key
-        va_list args;
-        va_start(args, first);
+    const char *key = first;
 
-        const char *key = first;
+    while (key != NULL)
+    {
+        cJSON_AddNumberToObject(dataObj, key, 0);
+        key = va_arg(args, const char *);
+    }
 
-        while (key != NULL)
-        {
-            cJSON_AddNumberToObject(dataObj, key, 0);
-            key = va_arg(args, const char *);
-        }
+    va_end(args);
 
-        va_end(args);
-        // 👉 dùng buffer tĩnh (KHÔNG malloc)
-        char buffer[256];
-        if (cJSON_PrintPreallocated(tele_root, buffer, sizeof(buffer), 0))
-        {
-            CKC_LOG_DEBUG("SET_TELE", "%s", buffer);
-            API_MESS.Set_telemetry(buffer);
-        }
-        else
-        {
-            CKC_LOG_DEBUG("SET_TELE", "Buffer too small!");
-        }
+    // dùng buffer tĩnh (KHÔNG malloc)
+    char buffer[256];
+    if (cJSON_PrintPreallocated(tele_root, buffer, sizeof(buffer), 0))
+    {
+        CKC_LOG_DEBUG("SET_TELE", "%s", buffer);
+        API_MESS.Set_telemetry(buffer);
+    }
+    else
+    {
+        CKC_LOG_DEBUG("SET_TELE", "Buffer too small!");
     }
 }
 

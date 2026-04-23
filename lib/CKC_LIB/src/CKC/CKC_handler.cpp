@@ -16,7 +16,6 @@ void __attribute__((weak)) CKC_WidgetWrite##n(uint8_t pin, const CKCParam& param
 }
 
 CKC_VPIN_LIST
-
 #undef X
 
 // ======================================================

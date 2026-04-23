@@ -77,7 +77,6 @@ PinType_t parsePinType(const char *type)
         return PIN_AO;
     return PIN_UNKNOWN;
 }
-
 class CkC_APi
 {
 
@@ -188,7 +187,7 @@ void CkC_APi::handlerArduino_Pin(const char *payload)
         CKC_LOG_DEBUG("ERR", "JSON parse failed!\n");
         return;
     }
-    // 🔥 đúng key
+    //  đúng key
     cJSON *arr = cJSON_GetObjectItem(root, "mcu_pin");
 
     if (cJSON_IsArray(arr))
@@ -332,7 +331,7 @@ void CkC_APi::dowm(const char *payload)
         return;
     }
 
-    // 🔥 đúng key
+    //  đúng key
     cJSON *arr = cJSON_GetObjectItem(root, "virtual_pins");
 
     if (cJSON_IsArray(arr))
@@ -399,6 +398,7 @@ void CkC_APi::WriteControl(const char *key, const CKCParam value)
 
 const char *CkC_APi::WriteTelemetry(const char *key, const CKCParam value)
 {
+
     if (!telemetry_root)
         return nullptr;
 
@@ -444,7 +444,7 @@ const char *CkC_APi::WriteTelemetry(const char *key, const CKCParam value)
     else
         cJSON_AddItemToObject(ObjectData, key, newItem);
 
-    // ✅ STATIC BUFFER
+    //  STATIC BUFFER
     static char buffer[256];
 
     if (cJSON_PrintPreallocated(telemetry_root, buffer, sizeof(buffer), 0))

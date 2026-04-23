@@ -214,7 +214,7 @@ CKCParam parseItem(cJSON *item)
         }
         else
         {
-            value.set((float)val);
+            value.set((float)val);            
             // CKC_LOG_DEBUG("PARAM", "value float : %f", value.getFloat());
         }
     }
@@ -225,7 +225,7 @@ CKCParam parseItem(cJSON *item)
     }
     else if (cJSON_IsString(item))
     {
-        value.set(item->valuestring);
+        value.set(item->valuestring);        
         // CKC_LOG_DEBUG("PARAM", "value string : %s", item->valuestring);
     }
     else
