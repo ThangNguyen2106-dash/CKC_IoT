@@ -7,6 +7,7 @@
 class CKC_Protocall
 {
 private:
+    CKC_ModbusESP32<int> CKCModbus;
     CKC_PnP<CKC_MQTT<PubSubClient>> CKC_PNP;
     CKC_MQTT<PubSubClient> serverMQTT;
     CkC_APi API_MESS;
@@ -55,6 +56,7 @@ void CKC_Protocall::WriteControl(const char *key, const CKCParam value)
         serverMQTT.CKC_publishData(data);
     }
 }
+
 void CKC_Protocall::WriteTelemetry(const char *key, const CKCParam value)
 {
     if ((this->CKC_PNP.CkC_Connected()) && (this->serverMQTT._connect()))
@@ -63,6 +65,7 @@ void CKC_Protocall::WriteTelemetry(const char *key, const CKCParam value)
         serverMQTT.CKC_publishData(data);
     }
 }
+
 void CKC_Protocall::set_Telemetry(const char *first, ...)
 {
     //  CHỈ tạo 1 lần (tránh fragment heap)
