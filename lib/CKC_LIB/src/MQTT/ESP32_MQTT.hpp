@@ -30,8 +30,8 @@ private:
     const char *MQTT_Server = "mqtt.ait.caothang.edu.vn"; // Server MQTT mqtt.ait.caothang.edu.vn PORT 8883
     const int16_t MQTT_PORT = 8883;
     const char *MQTT_ID = "";
-    const char *MQTT_USERNAME = "";
-    const char *MQTT_PASS = "";
+    const char *MQTT_USERNAME = ""; // nhập từ trên Web giao cho
+    const char *MQTT_PASS = "";     // nhập từ trên Web giao cho
 
     char CKC_MQTT_BASE_TOPIC[30] = CKC_BASE_TOPIC;
     char _mac[12];
