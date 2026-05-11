@@ -36,14 +36,19 @@
 #define BUTTON_MODE
 
 // Thông tin WiFi
-const char *SSID = "CKC";
-const char *PASS = "CKC2026";
+const char *SSID = "Nhập tên WiFi";
+const char *PASS = "Nhập mật khẩu WiFi";
+
+// Thông tin đăng nhập từ WebServer
+const char *USER = "Nhập Email từ hồ sơ";
+const char *PASS = "Nhập mật khẩu từ hồ sơ";
+
+//=======================================================================//
+// Ngoài ra có thể thay đổi thông tin WiFi và thông tin đăng nhập từ Web //
+//====================================================================== //
 
 // Include thư viện chính
 #include <CKC.h>
-
-// Biến lưu thời gian để gửi dữ liệu định kỳ
-int32_t time_P = 0;
 
 /*
 ==========================================================
@@ -51,16 +56,26 @@ int32_t time_P = 0;
 ==========================================================
 */
 
+// Hàm thực thi gửi dữ liệu theo chu kì cài đặt
+void timeEvent()
+{
+  float nhietdo = 30.0;
+  CKC.writeTelemetry("Temp", nhietdo);
+}
+
 void setup()
 {
   Serial.begin(115200); // Khởi tạo Serial
-  pinMode(26, OUTPUT);  // LED báo trạng thái
+  pinMode(26, OUTPUT);  // LED báo trạng thái (CÓ THỂ KHÔNG CẦN)
 
   // Kết nối WiFi + Server CKC
   CKC.begin(SSID, PASS);
 
   // Khai báo các key telemetry sẽ gửi lên server
-  CKC.set_Telemetry("TEM", "HUM", NULL);
+  CKC.setTelemetry("TEM", "HUM", NULL);
+
+  // Khai báo chu kì thực thi gửi dữ liệu
+  CKC.addTimeEvent(5000L, timeEvent);
 }
 
 /*
@@ -72,13 +87,4 @@ void loop()
 {
   // Hàm chạy chính của thư viện (bắt buộc)
   CKC.run();
-
-  // Gửi dữ liệu mỗi 1 giây
-  if (millis() - time_P > 1000)
-  {
-    time_P = millis();
-
-    // Gửi dữ liệu nhiệt độ lên server
-    CKC.WriteTelemetry("TEM", 30);
-  }
 }

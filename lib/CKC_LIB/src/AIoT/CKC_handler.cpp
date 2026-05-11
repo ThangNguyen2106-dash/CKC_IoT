@@ -1,7 +1,7 @@
-#include "CKC/CKC_handler.hpp"
+#include "AIoT/CKC_handler.hpp"
 
 // ===== Default fallback =====
-void CKC_WidgetWrite_Default(uint8_t pin, const CKCParam& param)
+void CKC_WidgetWrite_Default(uint8_t pin, const CKCParam &param)
 {
     // Bạn có thể log ở đây
     // printf("No handler for V%d\n", pin);
@@ -10,10 +10,11 @@ void CKC_WidgetWrite_Default(uint8_t pin, const CKCParam& param)
 // ======================================================
 // ===== TỰ SINH WEAK HANDLER =====
 // ======================================================
-#define X(n) \
-void __attribute__((weak)) CKC_WidgetWrite##n(uint8_t pin, const CKCParam& param) { \
-    CKC_WidgetWrite_Default(pin, param); \
-}
+#define X(n)                                                                          \
+    void __attribute__((weak)) CKC_WidgetWrite##n(uint8_t pin, const CKCParam &param) \
+    {                                                                                 \
+        CKC_WidgetWrite_Default(pin, param);                                          \
+    }
 
 CKC_VPIN_LIST
 #undef X
@@ -24,8 +25,7 @@ CKC_VPIN_LIST
 #define X(n) CKC_WidgetWrite##n,
 
 const handlerWidget_pin CKC_HandlerVector[] = {
-    CKC_VPIN_LIST
-};
+    CKC_VPIN_LIST};
 
 #undef X
 

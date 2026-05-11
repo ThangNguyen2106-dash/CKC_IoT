@@ -2,8 +2,7 @@
 #define CKC_ESP32
 #include <Arduino.h>
 #include <WiFiClient.h>
-#include <CKC/CKC_API.hpp>
-#include <MODBUS/CKC_ModbusESP32.hpp>
+#include <AIoT/CKC_API.hpp>
 #include <MQTT/ESP32_MQTT.hpp>
 #include <WebServer.h>
 #include <Preferences.h>
@@ -738,17 +737,20 @@ inline void CKC_PnP<Transport>::STA()
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_MAC: %s", _mac);
     serverMQTT.config(_mqtt_username, _mqtt_pass);
     serverMQTT.begin();
-    CKC_LOG_DEBUG("TAG", "\r\n"
-                         " ____ _ __ ____ "
-                         "\r\n"
-                         " / ___|| |/ / / ___| "
-                         "\r\n"
-                         "| | | ' / | | "
-                         "\r\n"
-                         "| |___ | . \\ | |___ "
-                         "\r\n"
-                         " \\____||_|\\_\\ \\____| "
-                         "\r\n");
+    if (serverMQTT._connect())
+    {
+        CKC_LOG_DEBUG("TAG", "\r\n"
+                             "  ____  _ __   ____ "
+                             "\r\n"
+                             " / ___|| |/ / / ___| "
+                             "\r\n"
+                             "| |    | ' / | | "
+                             "\r\n"
+                             "| |___ | . \\ | |___ "
+                             "\r\n"
+                             " \\____||_|\\_\\ \\____| "
+                             "\r\n");
+    }
     WiFi_TASK = MODE_CONNECTED;
 }
 
@@ -781,7 +783,6 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
         lastUserconfig = millis();
         this->handleScan();
         this -> CKC_SendPage(); });
-    //     this->webServer.send(200, "text/html", this->htmlPage()); });
     webServer.begin();
 
     WiFi_TASK = RUN_AP_WEB;

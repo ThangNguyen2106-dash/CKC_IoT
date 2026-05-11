@@ -134,7 +134,6 @@ void setup()
   // u8g2.begin();
 
   CKCModbus.beginModbus(Serial2, 9600, RX, TX);
-  CKCModbus.setTimeout(1000);
 
   CKC.begin(SSID, PASS);
   CKC.setTelemetry("Temp", NULL);

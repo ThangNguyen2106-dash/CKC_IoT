@@ -9,8 +9,8 @@
 #include <MQTT/NPT_Client/NTPClient.h>
 #include <MQTT/PubSubClient/PubSubClient.h>
 #include <stdint.h>
-#include <CKC/CKC_Param.hpp>
-#include "CKC/CKC_API.hpp"
+#include <AIoT/CKC_Param.hpp>
+#include "AIoT/CKC_API.hpp"
 
 template <class MQTT>
 class CKC_MQTT
@@ -35,7 +35,7 @@ private:
     char MQTT_USERNAME[28];
     char MQTT_PASS[21];
     char CKC_MQTT_BASE_TOPIC[30] = CKC_BASE_TOPIC;
-    char _mac[18];
+    char _mac[12];
 };
 
 WiFiClientSecure server;
@@ -95,45 +95,36 @@ inline void CKC_MQTT<MQTT>::config(const char *mqtt_userName, const char *mqtt_p
 {
     strcpy(MQTT_USERNAME, mqtt_userName);
     strcpy(MQTT_PASS, mqtt_pass);
-    // strcpy(MQTT_ID, mqtt_pass);
-    // CKC_LOG_DEBUG("MQTT", "MQTT_PASS: %s", MQTT_ID);
-    CKC_LOG_DEBUG("MQTT", "MQTT_USERNAME: %s", MQTT_USERNAME);
-    CKC_LOG_DEBUG("MQTT", "MQTT_PASS: %s", MQTT_PASS);
+    strcpy(MQTT_ID, mqtt_pass);
 }
 
 template <class MQTT>
 inline void CKC_MQTT<MQTT>::begin()
 {
+    // kiểm tra WiFi trước
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        CKC_LOG_DEBUG("MQTT", "NO WIFI");
+        return;
+    }
     server.setInsecure();
     mqttClient.setServer(MQTT_Server, MQTT_PORT);
     String MAC = WiFi.macAddress();
     strcpy(_mac, MAC.c_str());
     CKC_LOG_DEBUG("MQTT", "CONNECTING ---> SERVER");
     if (mqttClient.connect(MQTT_ID, MQTT_USERNAME, MQTT_PASS))
-    {
-        CKC_LOG_DEBUG("MQTT", "CONNECTED ---> SERVER");
-        mqttClient.setCallback(CKC_Callback);
-        snprintf(CKC_MQTT_BASE_TOPIC, sizeof(CKC_MQTT_BASE_TOPIC), "%s%s", CKC_MQTT_BASE_TOPIC, _mac);
-        this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_TELEMETRY_TOPIC);
-        this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_CONTROL_TOPIC);
-    }
-    else
-    {
-        CKC_LOG_DEBUG("MQTT", "FAILED, rc=", mqttClient.state());
-    }
-}
-
-template <class MQTT>
-inline bool CKC_MQTT<MQTT>::_connect()
-{
-    if (mqttClient.connected())
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+        if (mqttClient.connect(MQTT_ID))
+        {
+            CKC_LOG_DEBUG("MQTT", "CONNECTED ---> SERVER");
+            mqttClient.setCallback(CKC_Callback);
+            snprintf(CKC_MQTT_BASE_TOPIC, sizeof(CKC_MQTT_BASE_TOPIC), "%s%s", CKC_MQTT_BASE_TOPIC, _mac);
+            this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_TELEMETRY_TOPIC);
+            this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_CONTROL_TOPIC);
+        }
+        else
+        {
+            CKC_LOG_DEBUG("MQTT", "FAILED, rc=", mqttClient.state());
+        }
 }
 
 template <class MQTT>
@@ -148,6 +139,19 @@ inline void CKC_MQTT<MQTT>::run()
             this->begin();
             return;
         }
+    }
+}
+
+template <class MQTT>
+inline bool CKC_MQTT<MQTT>::_connect()
+{
+    if (mqttClient.connected())
+    {
+        return true;
+    }
+    else
+    {
+        return false;
     }
 }
 

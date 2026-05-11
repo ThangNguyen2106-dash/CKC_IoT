@@ -1,8 +1,10 @@
 #ifndef INC_CKC_PROTOCAL_HPP_
 #define INC_CKC_PROTOCAL_HPP_
 
-#include <CKC/CKC_debug.hpp>
+#include <AIoT/CKC_debug.hpp>
 #include <CKC_WiFi/CKC_PnP_ESP32.hpp>
+#include <Modbus/modbus.h>
+#include <Modbus/CKC_modbus.h>
 
 class CKC_Protocall
 {
@@ -141,6 +143,7 @@ void CKC_Protocall::setTelemetry(const char *first, ...)
 
     va_end(args);
 
+    // 👉 dùng buffer tĩnh (KHÔNG malloc)
     char buffer[256];
     if (cJSON_PrintPreallocated(tele_root, buffer, sizeof(buffer), 0))
     {
