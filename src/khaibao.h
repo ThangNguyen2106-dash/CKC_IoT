@@ -8,5 +8,8 @@
 #define IN2 32
 #define IN1 33
 
-#define RX1 16
-#define TX1  17
+#define Sensor1 36
+#define Sensor2 39
+
+#define RX 16
+#define TX 17
