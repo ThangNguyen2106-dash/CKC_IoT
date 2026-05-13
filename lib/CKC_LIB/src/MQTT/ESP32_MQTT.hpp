@@ -95,7 +95,10 @@ inline void CKC_MQTT<MQTT>::config(const char *mqtt_userName, const char *mqtt_p
 {
     strcpy(MQTT_USERNAME, mqtt_userName);
     strcpy(MQTT_PASS, mqtt_pass);
-    strcpy(MQTT_ID, mqtt_pass);
+    String mac = WiFi.macAddress();
+    mac.replace(":", "");
+    String clientID = "ESP_" + mac;
+    strcpy(MQTT_ID, clientID.c_str());
 }
 
 template <class MQTT>

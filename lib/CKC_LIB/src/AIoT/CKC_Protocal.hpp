@@ -94,16 +94,22 @@ void CKC_Protocall::writeControl(const char *key, const CKCParam value)
 {
     if (this->CKC_PNP.CkC_Connected())
     {
-        const char *data = this->API_MESS.WriteTelemetry(key, value);
-        serverMQTT.CKC_publishData(data);
+        if (this->serverMQTT._connect())
+        {
+            const char *data = this->API_MESS.WriteTelemetry(key, value);
+            serverMQTT.CKC_publishData(data);
+        }
     }
 }
 void CKC_Protocall::writeTelemetry(const char *key, const CKCParam value)
 {
     if (this->CKC_PNP.CkC_Connected())
     {
-        const char *data = this->API_MESS.WriteTelemetry(key, value);
-        serverMQTT.CKC_publishData(data);
+        if (this->serverMQTT._connect())
+        {
+            const char *data = this->API_MESS.WriteTelemetry(key, value);
+            serverMQTT.CKC_publishData(data);
+        }
     }
 }
 void CKC_Protocall::setTelemetry(const char *first, ...)
