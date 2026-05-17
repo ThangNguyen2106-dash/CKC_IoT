@@ -37,8 +37,8 @@ int IN[4] = {IN1, IN2, IN3, IN4};
 
 // unsigned long time_P = 0;
 // #include <CKC.h>
-// const char *SSID = "Homi";
-// const char *PASS = "12345689";
+// const char *SSID = "";
+// const char *PASS = "";
 
 // void hienthi()
 // {
