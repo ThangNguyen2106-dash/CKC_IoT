@@ -893,6 +893,8 @@ inline void CKC_PnP<Transport>::CKC_mode_connected()
     {
         CKC_LOG_DEBUG("WIFI", "LOST WIFI !!!!!");
         mqttClient.disconnect();
+        WiFi.disconnect(true, true);
+        delay(100);
         WiFi_TASK = MODE_STA;
         return;
     }

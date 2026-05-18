@@ -104,7 +104,6 @@ inline void CKC_MQTT<MQTT>::config(const char *mqtt_userName, const char *mqtt_p
 template <class MQTT>
 inline void CKC_MQTT<MQTT>::begin()
 {
-    // kiểm tra WiFi trước
     if (WiFi.status() != WL_CONNECTED)
     {
         CKC_LOG_DEBUG("MQTT", "NO WIFI");
@@ -116,32 +115,35 @@ inline void CKC_MQTT<MQTT>::begin()
     strcpy(_mac, MAC.c_str());
     CKC_LOG_DEBUG("MQTT", "CONNECTING ---> SERVER");
     if (mqttClient.connect(MQTT_ID, MQTT_USERNAME, MQTT_PASS))
-        if (mqttClient.connect(MQTT_ID))
-        {
-            CKC_LOG_DEBUG("MQTT", "CONNECTED ---> SERVER");
-            mqttClient.setCallback(CKC_Callback);
-            snprintf(CKC_MQTT_BASE_TOPIC, sizeof(CKC_MQTT_BASE_TOPIC), "%s%s", CKC_MQTT_BASE_TOPIC, _mac);
-            this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_TELEMETRY_TOPIC);
-            this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_CONTROL_TOPIC);
-        }
-        else
-        {
-            CKC_LOG_DEBUG("MQTT", "FAILED, rc=", mqttClient.state());
-        }
+    {
+        CKC_LOG_DEBUG("MQTT", "CONNECTED ---> SERVER");
+        mqttClient.setCallback(CKC_Callback);
+        snprintf(CKC_MQTT_BASE_TOPIC, sizeof(CKC_MQTT_BASE_TOPIC), "device/%s", _mac);
+        this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_TELEMETRY_TOPIC);
+        this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_CONTROL_TOPIC);
+    }
+    else
+    {
+        CKC_LOG_DEBUG("MQTT", "FAILED, rc=", mqttClient.state());
+    }
 }
 
 template <class MQTT>
 inline void CKC_MQTT<MQTT>::run()
 {
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        return;
+    }
     if (this->_connect())
     {
         mqttClient.loop();
-        if (!mqttClient.connect(MQTT_ID, MQTT_USERNAME, MQTT_PASS))
-        {
-            Serial.println("FAILED");
-            this->begin();
-            return;
-        }
+    }
+    if (!this->_connect())
+    {
+        Serial.println("FAILED");
+        this->begin();
+        return;
     }
 }
 
