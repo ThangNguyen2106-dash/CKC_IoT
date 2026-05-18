@@ -1,69 +1,23 @@
+
 #include <Arduino.h>
-#include <khaibao_A.h>
+#include <khaibao_B.h>
 
 #define CKC_DEBUG
 #define BUTTON_MODE
 
 #include <Wire.h>
 #include <U8g2lib.h>
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R2, U8X8_PIN_NONE);
 
 unsigned long time_P = 0;
 #include <CKC.h>
-const char *SSID = "";
-const char *PASS = "";
+const char *SSID = "MakerSpaceLab_2.4Ghz";
+const char *PASS = "Maker2025";
 
-#define NTC_pin 36
-const unsigned long SampleTime = 10;
-unsigned long timer = 0;
-int Sum_adc = 0;
-int count = 0;
+const char *USERNAME = "0309231068@caothang.edu.vn";
+const char *USERPASS = "0aUJA3s2YIG5TCHKIaG5";
 
-float SensorNTC()
-{
-  static float lastTemp = 0.0;
-  // thông số mạch
-  float VCC = 3.3;
-  float ADC_MAX = 4095.0;
-  float R_Fixed = 9680.0;
-  // thông số NTC
-  float Beta = 3950.0;
-  float RBase = 10000.0;
-  float TBase = (273.15 + 25.0); // Nhiệt độ Keven khi ở 25°C
-  float RNTC = 0.0;
-  if (millis() - timer > SampleTime)
-  {
-    timer = millis();
-    count++;
-    int adc = analogRead(NTC_pin);
-    Sum_adc += adc;
-    if (count >= 100)
-    {
-      float adcAVG = Sum_adc / 100.0; // tính trung bình cộng ADC
-      float Vadc = ((adcAVG * VCC) / ADC_MAX);
-      count = 0;
-      Sum_adc = 0;
-      adcAVG = 0;
-      if ((Vadc < 0.001) || (Vadc > 3.29))
-      {
-        Serial.println("Out of Range");
-        count = 0;
-        Sum_adc = 0;
-        adcAVG = 0;
-        return 0; // lỗi do ngõ vào ADC bị nhiễu nặng hoặc mất tính hiệu
-      }
-      // Tính toán điện trở và nhiệt độ
-      RNTC = R_Fixed * Vadc / (VCC - Vadc);
-      RNTC = RNTC * 1.25; // scale giá trị để gần đúng với thực tế
-      float tempK = 1.0 / (1.0 / TBase + (1.0 / Beta) * log(RNTC / RBase));
-      float tempC = tempK - 273.15;
-      lastTemp = tempC;
-    }
-  }
-  return lastTemp;
-}
-
-void hienthi(float Temp)
+void hienthi()
 {
   u8g2.clearBuffer();
 
@@ -76,19 +30,8 @@ void hienthi(float Temp)
   {
     if (serverMQTT._connect())
     {
-      // ===== NHIỆT ĐỘ =====
-      u8g2.setFont(u8g2_font_logisoso24_tr);
-
-      char tempStr[16];
-      sprintf(tempStr, "%.2f", Temp);
-
-      u8g2.drawStr(0, 28, tempStr);
-
-      // độ C nhỏ góc phải
       u8g2.setFont(u8g2_font_6x12_tr);
-      u8g2.drawUTF8(85, 10, "o");
-      u8g2.setFont(u8g2_font_logisoso24_tr);
-      u8g2.drawStr(90, 28, "C");
+      u8g2.drawStr(20, 20, "RUNNING...");
 
       // ===== INFO =====
       u8g2.setFont(u8g2_font_5x8_tr);
@@ -198,18 +141,12 @@ void hienthi(float Temp)
 
 void timeEvent()
 {
-  float Temperature = SensorNTC();
-  CKC.writeTelemetry("Temp", Temperature);
+  // CKC.writeTelemetry("SS", SENSOR);
 }
 
 void setup()
 {
   Serial.begin(115200);
-  pinMode(NTC_pin, INPUT);
-  pinMode(VCC_Pin, OUTPUT);
-  pinMode(LED, OUTPUT);
-  digitalWrite(LED, LOW);
-  digitalWrite(VCC_Pin, HIGH);
 
   Wire.begin(SDA, SCL);
   u8g2.begin();
@@ -219,13 +156,12 @@ void setup()
   u8g2.sendBuffer();
   delay(2000);
 
-  CKC.begin(SSID, PASS);
-  CKC.setTelemetry("Temp", NULL);
+  CKC.begin(SSID, PASS, USERNAME, USERPASS);
+  CKC.setTelemetry("SS", NULL);
   CKC.addTimeEvent(5000L, timeEvent);
 }
 void loop()
 {
-  float Temperature = SensorNTC();
-  hienthi(Temperature);
+  hienthi();
   CKC.run();
 }

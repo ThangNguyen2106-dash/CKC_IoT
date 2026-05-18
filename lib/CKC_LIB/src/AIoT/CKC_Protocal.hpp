@@ -4,7 +4,6 @@
 #include <AIoT/CKC_debug.hpp>
 #include <CKC_WiFi/CKC_PnP_ESP32.hpp>
 #include <Modbus/modbus.h>
-#include <Modbus/CKC_modbus.h>
 
 class CKC_Protocall
 {
@@ -92,24 +91,18 @@ bool CKC_Protocall::connected()
 
 void CKC_Protocall::writeControl(const char *key, const CKCParam value)
 {
-    if (this->CKC_PNP.CkC_Connected())
+    if (this->CKC_PNP.CkC_Connected() && this->serverMQTT._connect())
     {
-        if (this->serverMQTT._connect())
-        {
-            const char *data = this->API_MESS.WriteTelemetry(key, value);
-            serverMQTT.CKC_publishData(data);
-        }
+        const char *data = this->API_MESS.WriteTelemetry(key, value);
+        serverMQTT.CKC_publishData(data);
     }
 }
 void CKC_Protocall::writeTelemetry(const char *key, const CKCParam value)
 {
-    if (this->CKC_PNP.CkC_Connected())
+    if (this->CKC_PNP.CkC_Connected() && this->serverMQTT._connect())
     {
-        if (this->serverMQTT._connect())
-        {
-            const char *data = this->API_MESS.WriteTelemetry(key, value);
-            serverMQTT.CKC_publishData(data);
-        }
+        const char *data = this->API_MESS.WriteTelemetry(key, value);
+        serverMQTT.CKC_publishData(data);
     }
 }
 void CKC_Protocall::setTelemetry(const char *first, ...)

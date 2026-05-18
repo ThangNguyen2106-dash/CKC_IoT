@@ -72,6 +72,9 @@ private:
     char _ap_port[5] = AP_WIFI_PORT;
     char _mac[18];
 
+    char mqttusername[64];
+    char mqttpass[64];
+
     char _mqtt_username[64];
     char _mqtt_pass[64];
 
@@ -131,10 +134,11 @@ inline void CKC_PnP<Transport>::init(const char *sta_ssid, const char *sta_pass,
     delay(500);
     strcpy(_sta_ssid, sta_ssid);
     strcpy(_sta_pass, sta_pass);
+    strcpy(mqttusername, mqtt_userName);
+    strcpy(mqttpass, mqtt_pass);
     String MAC = WiFi.macAddress();
     strcpy(_mac, MAC.c_str());
     snprintf(_ap_ssid, sizeof(_ap_ssid), "%s%s", _ap_ssid, _mac);
-    serverMQTT.config(mqtt_userName, mqtt_pass);
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_NAME: %s", _sta_ssid);
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_PASS: %s", _sta_pass);
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", _sta_ip);
@@ -235,13 +239,51 @@ inline void CKC_PnP<Transport>::SaveWiFi(String newSSID, String newPASS)
 template <class Transport>
 inline void CKC_PnP<Transport>::SaveMQTT(String mqttuser, String mqttpass)
 {
+    // Không lưu nếu user rỗng
+    if (mqttuser.length() == 0)
+        return;
+
+    // Load dữ liệu hiện tại
+    loadMQTT();
+
+    // =========================
+    // USER & PASS GIỐNG -> SKIP
+    // =========================
+    if ((mqttuser == _mqtt_username) && (mqttpass == _mqtt_pass))
+    {
+        CKC_LOG_DEBUG("MQTT", "MQTT EXISTS -> SKIP");
+        return;
+    }
+
+    // =========================
+    // USER GIỐNG - PASS KHÁC
+    // =========================
+    if (mqttuser == _mqtt_username &&
+        mqttpass != _mqtt_pass)
+    {
+        CKC_LOG_DEBUG("MQTT", "MQTT USER EXISTS -> UPDATE PASS");
+    }
+    else
+    {
+        // =========================
+        // MQTT MỚI
+        // =========================
+        CKC_LOG_DEBUG("MQTT", "SAVE NEW MQTT");
+    }
+
+    // SAVE EEPROM
     if (!prefs.begin("mqtt", false))
         return;
+
     prefs.putString("user", mqttuser);
     prefs.putString("pass", mqttpass);
+
     prefs.end();
+
+    // UPDATE RAM
     strcpy(_mqtt_username, mqttuser.c_str());
     strcpy(_mqtt_pass, mqttpass.c_str());
+
     CKC_LOG_DEBUG("MQTT", "SAVE MQTT DONE");
 }
 
@@ -282,12 +324,15 @@ inline void CKC_PnP<Transport>::loadWiFi()
             saved_pass[i] = "";
         }
     }
+    CKC_LOG_DEBUG("MQTT", "LOAD WiFi DONE");
     prefs.end();
 }
 
 template <class Transport>
 inline void CKC_PnP<Transport>::loadMQTT()
 {
+    memset(_mqtt_username, 0, sizeof(_mqtt_username));
+    memset(_mqtt_pass, 0, sizeof(_mqtt_pass));
     if (!prefs.begin("mqtt", true))
         return;
     String user = prefs.getString("user", "");
@@ -322,7 +367,7 @@ inline void CKC_PnP<Transport>::handleScan()
 }
 
 template <class Transport>
-inline const char CKC_PnP<Transport>::WebConfigHEAD[] PROGMEM = R"rawliteral(
+const char CKC_PnP<Transport>::WebConfigHEAD[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -484,7 +529,7 @@ inline const char CKC_PnP<Transport>::WebConfigHEAD[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 template <class Transport>
-inline const char CKC_PnP<Transport>::WebConfigFOOT[] PROGMEM = R"rawliteral(
+const char CKC_PnP<Transport>::WebConfigFOOT[] PROGMEM = R"rawliteral(
 </select>
 
 <div id="signalView"></div>
@@ -724,6 +769,7 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
             return;
         }
     }
+
     // =========================
     // 2. SCAN WIFI XUNG QUANH
     // =========================
@@ -741,6 +787,7 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
         WiFi_TASK = MODE_AP;
         return;
     }
+
     // =========================
     // 3. TRY CONNECT SAVED WIFI
     // =========================
@@ -791,7 +838,16 @@ inline void CKC_PnP<Transport>::STA()
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_MAC: %s", _mac);
-    serverMQTT.config(_mqtt_username, _mqtt_pass);
+    if (strlen(_mqtt_username) > 0)
+    {
+        CKC_LOG_DEBUG("MQTT", "USE EEPROM MQTT");
+        serverMQTT.config(_mqtt_username, _mqtt_pass);
+    }
+    else
+    {
+        CKC_LOG_DEBUG("MQTT", "EEPROM EMPTY -> USE INIT MQTT");
+        serverMQTT.config(mqttusername, mqttpass);
+    }
     serverMQTT.begin();
     if (serverMQTT._connect())
     {
@@ -806,6 +862,7 @@ inline void CKC_PnP<Transport>::STA()
                              "\r\n"
                              " \\____||_|\\_\\ \\____| "
                              "\r\n");
+        SaveMQTT(mqttusername, mqttpass);
     }
     WiFi_TASK = MODE_CONNECTED;
 }
@@ -861,6 +918,7 @@ inline void CKC_PnP<Transport>::AP()
             return;
         }
         manual_config = false;
+        lastUserconfig = 0;
         CKC_LOG_DEBUG("WIFI", "EXIT MANUAL CONFIG");
     }
     this->Try_Connect();
