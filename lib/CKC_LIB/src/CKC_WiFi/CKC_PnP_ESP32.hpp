@@ -51,6 +51,7 @@ public:
     void STA();
     void CKC_state_Connect_AP();
     void AP();
+    void resetAPMODE();
     void Try_Connect();
     void CKC_mode_connected();
     bool CkC_Connected();
@@ -90,13 +91,16 @@ private:
     bool isconnecting = false;
     unsigned long connectStart = 0;
 
-    bool manual_config = false;
-    unsigned long lastUserconfig = 0;
-    const unsigned long userTimeout = 120000;
+    bool setup_device_state = false;
+
+    // bool manual_config = false;
+    // unsigned long lastUserconfig = 0;
+    // const unsigned long userTimeout = 120000;
 
 #define FLASH_BTN 0 // nút BOOT/FLASH trên ESP32 thường là GPIO0
     unsigned long pressStart = 0;
     bool triggered = false;
+    bool triggered_AP = false;
 
     String newSSID;
     String newPASS;
@@ -291,23 +295,6 @@ inline void CKC_PnP<Transport>::SaveMQTT(String mqttuser, String mqttpass)
 }
 
 template <class Transport>
-inline void CKC_PnP<Transport>::handleSave()
-{
-    newSSID = webServer.arg("ssid");
-    newPASS = webServer.arg("pass");
-    strcpy(_sta_ssid, newSSID.c_str());
-    strcpy(_sta_pass, newPASS.c_str());
-    String mqttUser = webServer.arg("mqtt_user");
-    String mqttPass = webServer.arg("mqtt_pass");
-    SaveMQTT(mqttUser, mqttPass);
-    webServer.send(200, "text/html", "<h3>WIFI CONNECTING...!!!</h3>");
-    WiFi.disconnect();
-    isconnecting = false;
-    manual_config = false;
-    WiFi_TASK = MODE_STA; // chuyển sang STA để test connect
-}
-
-template <class Transport>
 inline void CKC_PnP<Transport>::loadWiFi()
 {
     if (!prefs.begin("wifi", true))
@@ -367,6 +354,23 @@ inline void CKC_PnP<Transport>::handleScan()
         scan_rssi[i] = 0;
     }
     WiFi.scanDelete();
+}
+
+template <class Transport>
+inline void CKC_PnP<Transport>::handleSave()
+{
+    newSSID = webServer.arg("ssid");
+    newPASS = webServer.arg("pass");
+    strcpy(_sta_ssid, newSSID.c_str());
+    strcpy(_sta_pass, newPASS.c_str());
+    String mqttUser = webServer.arg("mqtt_user");
+    String mqttPass = webServer.arg("mqtt_pass");
+    SaveMQTT(mqttUser, mqttPass);
+    webServer.send(200, "text/html", CKC_WebUI::WebConfigCONNECT);
+    WiFi.disconnect();
+    isconnecting = false;
+    resetAPMODE();
+    WiFi_TASK = MODE_STA; // chuyển sang STA để test connect
 }
 
 template <class Transport>
@@ -525,7 +529,6 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
     // =========================
     CKC_LOG_DEBUG("WIFI", "NO WIFI CONNECTED -> AP MODE");
     mqttClient.disconnect();
-    manual_config = false;
     WiFi_TASK = MODE_AP;
     delay(100);
 }
@@ -533,6 +536,7 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
 template <class Transport>
 inline void CKC_PnP<Transport>::STA()
 {
+    resetAPMODE();
     CKC_LOG_DEBUG("WIFI", "WIFI_CONNECTED!!!");
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_IP: %s", WiFi.localIP().toString());
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_PORT: %s", _sta_port);
@@ -591,30 +595,35 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
     webServer.onNotFound([this]()
                          { 
     webServer.sendHeader("Location",String("http://") +WiFi.softAPIP().toString(),true);
-    manual_config = true;
     webServer.send(302, "text/plain", ""); });
 
     webServer.on("/", [this]()
                  {
         CKC_LOG_DEBUG("WIFI", "WEBSITE ON");
-        lastUserconfig = millis();
-        manual_config = true;
+         setup_device_state = true;
          this -> CKC_SendPage(); });
-
-    webServer.on("/connect", HTTP_POST, [this]()
-                 { this->handleSave(); });
 
     webServer.on("/scan", [this]()
                  {
-        lastUserconfig = millis();
-        manual_config = true;
+        setup_device_state = true;
         WiFi.disconnect();
         isconnecting = false;
         this->handleScan();
         this -> CKC_SendPage(); });
 
+    webServer.on("/connect", HTTP_POST, [this]()
+                 { this->handleSave(); });
+
     webServer.begin();
     WiFi_TASK = RUN_AP_WEB;
+}
+template <class Transport>
+inline void CKC_PnP<Transport>::resetAPMODE()
+{
+    triggered_AP = false;
+    isconnecting = false;
+    setup_device_state = false;
+    CKC_LOG_DEBUG("WIFI", "RESET AP MODE!!!");
 }
 
 template <class Transport>
@@ -623,19 +632,16 @@ inline void CKC_PnP<Transport>::AP()
     mqttClient.disconnect();
     dnsServer.processNextRequest();
     this->webServer.handleClient();
-    if (manual_config)
+    if (!triggered_AP)
     {
-        if (millis() - lastUserconfig < userTimeout)
+        if (!setup_device_state)
         {
-            return;
+            this->Try_Connect();
         }
-        manual_config = false;
-        lastUserconfig = 0;
-        CKC_LOG_DEBUG("WIFI", "EXIT MANUAL CONFIG");
     }
-    this->Try_Connect();
     if (WiFi.status() == WL_CONNECTED)
     {
+        resetAPMODE();
         CKC_LOG_DEBUG("WIFI", "CONNECTED -> EXIT AP");
         WiFi.softAPdisconnect(true);
         dnsServer.stop();
@@ -700,9 +706,13 @@ inline void CKC_PnP<Transport>::handler_button()
             pressStart = millis();
         if (!triggered && (millis() - pressStart >= 5000))
         {
-            triggered = true;
             mqttClient.disconnect();
-            manual_config = true;
+            WiFi.disconnect(true, true);
+            WiFi.mode(WIFI_OFF);
+            delay(300);
+            triggered = true;
+            triggered_AP = true;
+            isconnecting = false;
             WiFi_TASK = MODE_AP;
             CKC_LOG_DEBUG("WIFI", "BUTTON TRIGGER");
         }

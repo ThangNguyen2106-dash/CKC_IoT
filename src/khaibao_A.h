@@ -26,6 +26,9 @@
 // const char *SSID = "";
 // const char *PASS = "";
 
+// const char *USERNAME = "";
+// const char *USERPASS = "";
+
 // // // #define USERNAME "0309231068@caothang.edu.vn"
 // // // #define USERPASS 0aUJA3s2YIG5TCHKIaG5
 
@@ -235,7 +238,7 @@
 //     u8g2.sendBuffer();
 //     delay(2000);
 
-//     CKC.begin(SSID, PASS);
+//     CKC.begin(SSID, PASS, USERNAME, USERPASS);
 //     CKC.setTelemetry("Temp", NULL);
 //     CKC.addTimeEvent(5000L, timeEvent);
 // }
