@@ -13,8 +13,8 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R2, U8X8_PIN_NONE);
 
 unsigned long time_P = 0;
 #include <CKC.h>
-const char *SSID = "";
-const char *PASS = "";
+const char *SSID = "MakerSpaceLab_2.4Ghz";
+const char *PASS = "Maker2025";
 
 const char *USERNAME = "";
 const char *USERPASS = "";
@@ -162,21 +162,8 @@ void setup()
     CKC.setTelemetry("SS", NULL);
     CKC.addTimeEvent(5000L, timeEvent);
 }
-
 void loop()
 {
     hienthi();
     CKC.run();
 }
-// #include <Arduino.h>
-// #include "nvs_flash.h"
-// void setup()
-// {
-//     Serial.begin(115200);
-//     nvs_flash_erase(); // xóa toàn bộ flash NVS
-//     nvs_flash_init();  // khởi tạo lại
-//     Serial.println("Da xoa toan bo flash!");
-// }
-// void loop()
-// {
-// }

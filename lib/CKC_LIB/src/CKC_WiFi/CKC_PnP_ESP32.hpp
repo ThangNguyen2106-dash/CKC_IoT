@@ -21,7 +21,7 @@ char STA_WIFI_PASS[32];
 
 enum CKC_WiFI_TASK
 {
-    MODE_CONFIG_WIFI,
+    MODE_CONFIG,
     MODE_STA,
     MODE_AP,
     MODE_CONNECTED,
@@ -39,23 +39,25 @@ class CKC_PnP
 
 public:
     CKC_PnP() {};
-    void init(const char *sta_ssid, const char *sta_pass);
-    void init(const char *sta_ssid, const char *sta_pass, const char *mqtt_userName, const char *mqtt_pass);
-    void SaveWiFi(String newSSID, String newPASS);
-    void SaveMQTT(String mqttuser, String mqttpass);
-    void handleSave();
-    void loadWiFi();
-    void loadMQTT();
-    void handleScan();
-    void CKC_state_Connect_STA();
+    // START TASK
+    void init(const char *sta_ssid, const char *sta_pass);                                                   // đưa cấu hình WiFi vào từ khai báo
+    void init(const char *sta_ssid, const char *sta_pass, const char *mqtt_userName, const char *mqtt_pass); // đưa cấu hình WiFi và Server từ khai báo
+    // Handle SYSTEM
+    void SaveWiFi(String newSSID, String newPASS);   // Thực hiện Lưu WiFi từ Config_UI mỗi khi có WiFi mới
+    void SaveMQTT(String mqttuser, String mqttpass); // Thực hiện lưu tài khoảng từ Config_UI mỗi khi cấu hình
+    void loadWiFi();                                 // tải danh sách WiFi từ trong bộ nhớ ESP32
+    void loadMQTT();                                 // tải tài khoảng từ trong bộ nhớ ESP32
+    void handleScan();                               // thực hiện lệnh Scan WiFi xung quanh trong Config_UI
+    void handleSave();                               // thực hiện lệnh nhúng cấu hình từ Config_UI để xử lý
+    void CKC_state_Connect_STA();                    // khởi tạo và cấu hình chế độ STA
     void STA();
-    void CKC_state_Connect_AP();
+    void CKC_state_Connect_AP(); // khởi tạo và cấu hình chế độ AP
     void AP();
-    void resetAPMODE();
-    void Try_Connect();
-    void CKC_mode_connected();
-    bool CkC_Connected();
-    void run();
+    void resetAPMODE();        // RESET lại giá trị về ban đầu sau khi đã kết nối
+    void Try_Connect();        // Kết nối lại WiFi sau khi bị báo rớt WiFi
+    void CKC_mode_connected(); // Hàm hoạt động giao tiếp giữa thiết bị và máy chủ và kiểm tra kết nối
+    bool CkC_Connected();      // Hàm kiểm tra kết nối WiFi
+    void run();                // Hàm chạy tuần tự chương trình theo STATE
     static const char WebConfigHEAD[] PROGMEM;
     static const char WebConfigFOOT[] PROGMEM;
     void CKC_SendPage();
@@ -76,9 +78,10 @@ private:
     char _ap_port[5] = AP_WIFI_PORT;
     char _mac[18];
 
+    // ===== MQTT INIT ===== //
     char mqttusername[64];
     char mqttpass[64];
-
+    // ===== MQTT EEPROM ===== //
     char _mqtt_username[64];
     char _mqtt_pass[64];
 
@@ -93,10 +96,6 @@ private:
 
     bool setup_device_state = false;
 
-    // bool manual_config = false;
-    // unsigned long lastUserconfig = 0;
-    // const unsigned long userTimeout = 120000;
-
 #define FLASH_BTN 0 // nút BOOT/FLASH trên ESP32 thường là GPIO0
     unsigned long pressStart = 0;
     bool triggered = false;
@@ -107,20 +106,25 @@ private:
 
 #define Saved_WiFi_MAX 2
 #define Scan_WiFi_MAX 5
-    // ===== WIFI ĐÃ LƯU (AUTO CONNECT) =====
+    // ===== WIFI ĐÃ LƯU (AUTO CONNECT) ===== //
     String saved_ssid[Saved_WiFi_MAX];
     String saved_pass[Saved_WiFi_MAX];
 
-    // ===== WIFI SCAN (HIỂN THỊ WEB) =====
+    // ===== WIFI SCAN (HIỂN THỊ WEB) ===== //
     String scan_ssid[Scan_WiFi_MAX];
     int scan_rssi[Scan_WiFi_MAX];
 };
-
+//========== START SYSTEM ==========//
 template <class Transport>
 inline void CKC_PnP<Transport>::init(const char *sta_ssid, const char *sta_pass)
 {
     WiFi.mode(WIFI_STA);
+    WiFi.setSleep(false);
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
     delay(500);
+    // WiFi.setAutoReconnect(true);
+    // WiFi.persistent(true);
+    // WiFi.setHostname("CKC_ESP32");
     strcpy(_sta_ssid, sta_ssid);
     strcpy(_sta_pass, sta_pass);
     String MAC = WiFi.macAddress();
@@ -138,7 +142,12 @@ template <class Transport>
 inline void CKC_PnP<Transport>::init(const char *sta_ssid, const char *sta_pass, const char *mqtt_userName, const char *mqtt_pass)
 {
     WiFi.mode(WIFI_STA);
+    WiFi.setSleep(false);
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
     delay(500);
+    // WiFi.setAutoReconnect(true);
+    // WiFi.persistent(true);
+    // WiFi.setHostname("CKC_ESP32");
     strcpy(_sta_ssid, sta_ssid);
     strcpy(_sta_pass, sta_pass);
     strcpy(mqttusername, mqtt_userName);
@@ -154,6 +163,7 @@ inline void CKC_PnP<Transport>::init(const char *sta_ssid, const char *sta_pass,
     pinMode(FLASH_BTN, INPUT_PULLUP); // nút kéo xuống GND khi nhấn
 }
 
+//========== HANDLE SYSTEM ==========//
 template <class Transport>
 inline void CKC_PnP<Transport>::SaveWiFi(String newSSID, String newPASS)
 {
@@ -468,31 +478,13 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
         if (WiFi.status() == WL_CONNECTED)
         {
             SaveWiFi(_sta_ssid, _sta_pass);
+            Serial.println(WiFi.RSSI());
             STA();
             return;
         }
     }
-
     // =========================
-    // 2. SCAN WIFI XUNG QUANH
-    // =========================
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    delay(200);
-    CKC_LOG_DEBUG("WIFI", "SCANNING WIFI...");
-    WiFi.scanDelete();
-    delay(100);
-    int n = WiFi.scanNetworks();
-    if (n <= 0)
-    {
-        CKC_LOG_DEBUG("WIFI", "NO WIFI FOUND -> SWITCH AP");
-        mqttClient.disconnect();
-        WiFi_TASK = MODE_AP;
-        return;
-    }
-
-    // =========================
-    // 3. TRY CONNECT SAVED WIFI
+    // 2. TRY CONNECT SAVED WIFI
     // =========================
     for (int j = 0; j < Saved_WiFi_MAX; j++)
     {
@@ -519,13 +511,14 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_STA()
         if (WiFi.status() == WL_CONNECTED)
         {
             SaveWiFi(saved_ssid[j].c_str(), saved_pass[j].c_str());
+            Serial.println(WiFi.RSSI());
             STA();
             return;
         }
         CKC_LOG_DEBUG("WIFI", "FAILED WIFI: %s", saved_ssid[j].c_str());
     }
     // =========================
-    // 4. FAIL -> AP MODE
+    // 3. FAIL -> AP MODE
     // =========================
     CKC_LOG_DEBUG("WIFI", "NO WIFI CONNECTED -> AP MODE");
     mqttClient.disconnect();
@@ -617,6 +610,7 @@ inline void CKC_PnP<Transport>::CKC_state_Connect_AP()
     webServer.begin();
     WiFi_TASK = RUN_AP_WEB;
 }
+
 template <class Transport>
 inline void CKC_PnP<Transport>::resetAPMODE()
 {
