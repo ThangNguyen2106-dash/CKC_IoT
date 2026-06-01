@@ -1,28 +1,26 @@
 // #include <Arduino.h>
-// #include <khaibao_B.h>
-
 // #define CKC_DEBUG
 // #define BUTTON_MODE
 
 // unsigned long time_P = 0;
 
 // #include <CKC.h>
-// const char *SSID = "Nhập tên WiFi của bạn vào";
-// const char *PASS = "Nhập mật khẩu WiFi của bạn vào";
+// const char *SSID = "";
+// const char *PASS = "";
 
-// const char *USERNAME = "Nhập tên tài khoản MQTT trong Web cung cấp";
-// const char *USERPASS = "Nhập mật khẩu MQTT trong Web cung cấp";
+// const char *USERNAME = "";
+// const char *USERPASS = "";
 
-// #define RXD2 16 // chân RX
-// #define TXD2 17 // chân TX
-// #define DE 2    // chân chiều cho Module
+// #define RX 16 // chân RX
+// #define TX 17 // chân TX
+// #define DE 2  // chân chiều cho Module
 
 // float Humidity, Temperature, EC;
 // void read_Sensor() // hàm đọc cảm biến Cảm biến nhiệt độ độ ẩm độ dẫn điện (EC) đất 3 trong 1 ES-SM-THEC-01
 // {
 //     uint16_t DATA[3]; // ví dụ cần đọc 3 giá trị của cảm biến có thanh ghi liên tiếp nhau
 //     int RS = CKCModbus.readHoldingRegisterValue(
-//         1,      // Địa chỉ Slave của cảm biến
+//         2,      // Địa chỉ Slave của cảm biến
 //         0x0000, // Địa chỉ thanh ghi bắt đầu
 //         3,      // Số lượng thanh ghi cần đọc
 //         DATA    // Dữ liệu trả về
@@ -53,7 +51,7 @@
 // {
 //     Serial.begin(115200);
 //     CKC.begin(SSID, PASS, USERNAME, USERPASS);
-//     CKCModbus.beginModbus(Serial1, 9600, RX, TX, DE, SERIAL_8N1);
+//     CKCModbus.beginModbus(Serial1, 9600, RX, TX, SERIAL_8N1);
 //     CKCModbus.setTimeout(1000);
 
 //     CKC.setTelemetry("HUM", "TEMP", "EC", NULL); // Khai báo Key dữ liệu muốn gửi đến máy chủ

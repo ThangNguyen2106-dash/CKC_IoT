@@ -29,8 +29,8 @@
 // const char *USERNAME = "";
 // const char *USERPASS = "";
 
-// // // #define USERNAME "0309231068@caothang.edu.vn"
-// // // #define USERPASS 0aUJA3s2YIG5TCHKIaG5
+// 0309231068@caothang.edu.vn
+// 4dfAudwntoocVw6rJU7B
 
 // #define NTC_pin 36
 // const unsigned long SampleTime = 10;

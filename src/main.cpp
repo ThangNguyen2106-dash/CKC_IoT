@@ -1,169 +1,103 @@
 #include <Arduino.h>
-#include <khaibao_B.h>
-
 #define CKC_DEBUG
 #define BUTTON_MODE
 
-#include <Wire.h>
-#include <U8g2lib.h>
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R2, U8X8_PIN_NONE);
-
-// 0309231068@caothang.edu.vn
-// 0aUJA3s2YIG5TCHKIaG5
-
 unsigned long time_P = 0;
+
 #include <CKC.h>
-const char *SSID = "MakerSpaceLab_2.4Ghz";
-const char *PASS = "Maker2025";
+const char *SSID = "";
+const char *PASS = "";
 
 const char *USERNAME = "";
 const char *USERPASS = "";
 
-void hienthi()
+#define RX 16 // chân RX
+#define TX 17 // chân TX
+#define DE 2  // chân chiều cho Module
+
+float Humidity, Temperature, EC;
+void read_Sensor1() // hàm đọc cảm biến Cảm biến nhiệt độ độ ẩm độ dẫn điện (EC) đất 3 trong 1 ES-SM-THEC-01
 {
-    u8g2.clearBuffer();
+    uint16_t DATA1[3]; // ví dụ cần đọc 3 giá trị của cảm biến có thanh ghi liên tiếp nhau
+    int RS = CKCModbus.readHoldingRegisterValue(
+        2,      // Địa chỉ Slave của cảm biến
+        0x0000, // Địa chỉ thanh ghi bắt đầu
+        3,      // Số lượng thanh ghi cần đọc
+        DATA1   // Dữ liệu trả về
+    );
 
-    CKC_WiFI_TASK state = WiFi_TASK;
-
-    // =========================
-    // MODE CONNECTED
-    // =========================
-    if (state == MODE_CONNECTED)
+    if (RS > 0)
     {
-        if (serverMQTT._connect())
-        {
-            u8g2.setFont(u8g2_font_6x12_tr);
-            u8g2.drawStr(20, 20, "RUNNING...");
-
-            // ===== INFO =====
-            u8g2.setFont(u8g2_font_5x8_tr);
-
-            // line
-            u8g2.drawHLine(0, 32, 128);
-
-            // MODE
-            u8g2.drawStr(0, 41, "MODE : ONLINE");
-
-            // SSID
-            String ssid = WiFi.SSID();
-            String wifiLine = "SSID : " + ssid;
-            u8g2.drawStr(0, 50, wifiLine.c_str());
-
-            // MAC
-            String mac = WiFi.macAddress();
-            String macLine = "MAC  : " + mac;
-            u8g2.drawStr(0, 59, macLine.c_str());
-        }
-        if (!serverMQTT._connect())
-        {
-            u8g2.setFont(u8g2_font_6x12_tr);
-            u8g2.drawStr(20, 20, "Connecting...");
-            // ===== INFO =====
-            u8g2.setFont(u8g2_font_5x8_tr);
-
-            // line
-            u8g2.drawHLine(0, 32, 128);
-
-            // MODE
-            u8g2.drawStr(0, 41, "MODE : ONLINE");
-
-            // SSID
-            String ssid = WiFi.SSID();
-            String wifiLine = "SSID : " + ssid;
-            u8g2.drawStr(0, 50, wifiLine.c_str());
-
-            // MAC
-            String mac = WiFi.macAddress();
-            String macLine = "MAC  : " + mac;
-            u8g2.drawStr(0, 59, macLine.c_str());
-        }
+        Humidity = DATA1[0] / 10.0;    // Xử lý giá trị độ ẩm
+        Temperature = DATA1[1] / 10.0; // Xử lý giá trị nhiệt độ
+        EC = DATA1[2];                 // Xử lý giá trị độ dẫn điện của đất
     }
-
-    // =========================
-    // AP CONFIG MODE
-    // =========================
-    else if (state == MODE_AP || state == RUN_AP_WEB)
-    {
-        // ===== TITLE =====
-        u8g2.setFont(u8g2_font_logisoso20_tr);
-        u8g2.drawStr(0, 24, "CONFIG");
-
-        // line
-        u8g2.drawHLine(0, 30, 128);
-
-        u8g2.setFont(u8g2_font_5x8_tr);
-
-        // AP NAME
-        String ap = WiFi.softAPSSID();
-        String apLine = "AP : " + ap;
-        u8g2.drawStr(0, 40, apLine.c_str());
-
-        // PASSWORD
-        u8g2.drawStr(0, 50, "PASS : CKC@2026");
-
-        // IP
-        IPAddress ip = WiFi.softAPIP();
-        String ipLine = "IP : " + ip.toString();
-        u8g2.drawStr(0, 60, ipLine.c_str());
-    }
-
-    // =========================
-    // CONNECTING
-    // =========================
-    else if (state == MODE_STA)
-    {
-        u8g2.setFont(u8g2_font_6x12_tr);
-        u8g2.drawStr(20, 50, "Connecting...");
-    }
-
-    // =========================
-    // RECONNECT
-    // =========================
     else
     {
-        u8g2.setFont(u8g2_font_6x12_tr);
-
-        if (WiFi.status() != WL_CONNECTED)
-        {
-            u8g2.drawStr(0, 45, "WiFi Lost !");
-        }
-        else
-        {
-            u8g2.drawStr(0, 45, "MQTT Reconnecting...");
-        }
-
-        String ssid = WiFi.SSID();
-        String line = "SSID : " + ssid;
-
-        u8g2.drawStr(0, 58, line.c_str());
+        Serial.print("MODBUS ERROR: ");
+        Serial.println(RS);
     }
+}
 
-    u8g2.sendBuffer();
+float Voltage, Frequency, APower, Current;
+void read_Sensor2() // hàm đọc cảm biến Đồng hồ đo vạn năng EM2M
+{
+    uint16_t DATA2[14]; // Đọc 2 thanh ghi của cảm biến EM2M
+    int RS1 = CKCModbus.readHoldingRegisterValue(
+        3,      // Địa chỉ Slave của cảm biến
+        0x0E,   // Địa chỉ thanh ghi bắt đầu
+        14,     // số lượng thanh ghi cần đọc
+        DATA2); // Dữ liệu trả về
+    if (RS1 > 0)
+    {
+        APower = CKCModbus.RegToFloat(DATA2[0], DATA2[1]);
+        Voltage = CKCModbus.RegToFloat(DATA2[6], DATA2[7]);
+        Current = CKCModbus.RegToFloat(DATA2[8], DATA2[9]);
+        Frequency = CKCModbus.RegToFloat(DATA2[12], DATA2[13]);
+    }
+    else
+    {
+        Serial.print("MODBUS ERROR: ");
+        Serial.println(RS1);
+    }
 }
 
 void timeEvent()
 {
-    // CKC.writeTelemetry("SS", SENSOR);
+    read_Sensor1();
+    read_Sensor2();
+
+    CKC.writeTelemetry("HUM", Humidity);
+    CKC.writeTelemetry("TEMP", Temperature);
+    CKC.writeTelemetry("EC", EC);
+
+    CKC.writeTelemetry("POWER", APower);
+    CKC.writeTelemetry("VOLT", Voltage);
+    CKC.writeTelemetry("CURRENT", Current);
+    CKC.writeTelemetry("FRE", Frequency);
+
+    Serial.println("Độ ẩm: " + String(Humidity));
+    Serial.println("Nhiệt độ: " + String(Temperature));
+    Serial.println("Độ dẫn điện: " + String(EC));
+
+    Serial.println("Công suất: " + String(APower));
+    Serial.println("Điện áp: " + String(Voltage));
+    Serial.println("Dòng điện: " + String(Current));
+    Serial.println("Tần số: " + String(Frequency));
 }
 
 void setup()
 {
     Serial.begin(115200);
-
-    Wire.begin(SDA, SCL);
-    u8g2.begin();
-    u8g2.clearBuffer();
-    u8g2.setFont(u8g2_font_6x12_tr);
-    u8g2.drawStr(20, 48, "RUNNING SYSTEM");
-    u8g2.sendBuffer();
-    delay(2000);
-
     CKC.begin(SSID, PASS, USERNAME, USERPASS);
-    CKC.setTelemetry("SS", NULL);
-    CKC.addTimeEvent(5000L, timeEvent);
+    CKCModbus.beginModbus(Serial1, 9600, RX, TX);
+    CKCModbus.setTimeout(5000);
+
+    CKC.setTelemetry("HUM", "TEMP", "EC", "POWER", "VOLT", "CURRENT", "FRE", NULL); // Khai báo Key dữ liệu muốn gửi đến máy chủ
+    CKC.addTimeEvent(5000L, timeEvent);                                             // Khai báo chu kỳ thực hiện hàm gửi
 }
+
 void loop()
 {
-    hienthi();
     CKC.run();
 }
