@@ -247,3 +247,6 @@
 //     hienthi(Temperature);
 //     CKC.run();
 // }
+void Helo()
+{
+}
