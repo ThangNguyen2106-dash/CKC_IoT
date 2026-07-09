@@ -36,10 +36,9 @@ int IN[4] = {IN1, IN2, IN3, IN4};
 // // 4dfAudwntoocVw6rJU7B
 // // 94:54:C5:43:8D:20
 
-// unsigned long time_P = 0;
 // #include <CKC.h>
-// const char *SSID = "MakerSpaceLab_2.4Ghz";
-// const char *PASS = "Maker2025";
+// const char *SSID = "Homi";
+// const char *PASS = "12345689";
 
 // const char *USERNAME = "0309231068@caothang.edu.vn";
 // const char *USERPASS = "4dfAudwntoocVw6rJU7B";
@@ -168,7 +167,7 @@ int IN[4] = {IN1, IN2, IN3, IN4};
 
 // void timeEvent()
 // {
-//     // CKC.writeTelemetry("SS", SENSOR);
+//     CKC.writeTelemetry("SS", 0);
 // }
 
 // void setup()

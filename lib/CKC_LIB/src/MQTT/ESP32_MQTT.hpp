@@ -26,7 +26,8 @@ public:
     void CKC_unsubscribeTopic(const char *baseTopic, const char *Topic_ne);
     void CKC_publishTopic(const char *baseTopic, const char *Topic_ne);
     void CKC_unpublishTopic(const char *baseTopic, const char *Topic_ne);
-    void CKC_publishData(const char *data);
+    void CKC_publishData_tele(const char *data);
+    void CKC_publishData_control(const char *data);
     bool check_mode_sub(char *topic, char *mess);
 
 private:
@@ -85,10 +86,17 @@ inline void CKC_MQTT<MQTT>::CKC_unpublishTopic(const char *baseTopic, const char
 }
 
 template <class MQTT>
-inline void CKC_MQTT<MQTT>::CKC_publishData(const char *data)
+inline void CKC_MQTT<MQTT>::CKC_publishData_tele(const char *data)
 {
     char NameTopic[100];
     snprintf(NameTopic, sizeof(NameTopic), "%s%s", CKC_BASE_TOPIC, CKC_PUB_PREFIX_TELEMETRY_TOPIC);
+    mqttClient.publish(NameTopic, data);
+}
+template <class MQTT>
+inline void CKC_MQTT<MQTT>::CKC_publishData_control(const char *data)
+{
+    char NameTopic[100];
+    snprintf(NameTopic, sizeof(NameTopic), "%s%s", CKC_BASE_TOPIC, CKC_PUB_PREFIX_CONTROL_TOPIC);
     mqttClient.publish(NameTopic, data);
 }
 
@@ -129,6 +137,9 @@ inline void CKC_MQTT<MQTT>::begin()
         snprintf(CKC_MQTT_BASE_TOPIC, sizeof(CKC_MQTT_BASE_TOPIC), "%s%s", CKC_BASE_TOPIC, _mac);
         this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_TELEMETRY_TOPIC);
         this->CKC_subscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_CONTROL_TOPIC);
+
+        // CKC_LOG_DEBUG("MQTT", "%s%s", CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_TELEMETRY_TOPIC);
+        // CKC_LOG_DEBUG("MQTT", "%s%s", CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_CONTROL_TOPIC);
         CKC_LOG_DEBUG("MQTT", "CONNECTED ---> SERVER");
     }
     else
@@ -142,6 +153,9 @@ inline void CKC_MQTT<MQTT>::disconnect()
     snprintf(CKC_MQTT_BASE_TOPIC, sizeof(CKC_MQTT_BASE_TOPIC), "%s%s", CKC_BASE_TOPIC, _mac);
     this->CKC_unsubscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_TELEMETRY_TOPIC);
     this->CKC_unsubscribeTopic(CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_CONTROL_TOPIC);
+
+    // CKC_LOG_DEBUG("MQTT", "UN________%s%s", CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_TELEMETRY_TOPIC);
+    // CKC_LOG_DEBUG("MQTT", "UN________%s%s", CKC_MQTT_BASE_TOPIC, CKC_SUB_PREFIX_CONTROL_TOPIC);
     delay(100);
 }
 

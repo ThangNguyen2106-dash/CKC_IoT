@@ -536,7 +536,7 @@ inline void CKC_PnP<Transport>::STA()
     CKC_LOG_DEBUG("WIFI", "STA_WIFI_MAC: %s", _mac);
     if (strlen(_mqtt_username) > 0)
     {
-        CKC_LOG_DEBUG("MQTT", "USE EEPROM MQTT");
+        CKC_LOG_DEBUG("MQTT", "USE NVS MQTT");
         serverMQTT.config(_mqtt_username, _mqtt_pass);
     }
     else
