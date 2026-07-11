@@ -247,6 +247,22 @@
 //     hienthi(Temperature);
 //     CKC.run();
 // }
-void Helo()
+void tenham()
 {
+}
+void tenham_(int a)
+{
+    // bật đèn
+    // bật quạt...
+}
+int tinhtoan(int a, int b)
+{
+    int c = a + b;
+    return c;
+}
+float tinhtoan_nhietdo()
+{
+    // tính toán ADC để đưa ra nhiệt độ
+    float value = 24.32;
+    return value;
 }
